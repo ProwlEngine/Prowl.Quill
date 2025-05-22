@@ -23,7 +23,7 @@ namespace Prowl.Quill
         /// <summary>
         /// Gets the size of a texture.
         /// </summary>
-        public Point GetTextureSize(object texture) 
+        public Point GetTextureSize(object texture)
         {
             Vector2Int size = _canvas._renderer.GetTextureSize(texture);
             return new Point(size.x, size.y);

@@ -1,13 +1,11 @@
 ﻿using FontStashSharp;
 using Prowl.Vector;
-using System.Diagnostics;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using Prowl.Quill.External.LibTessDotNet;
 using System.Collections.Generic;
 using System.Linq;
 using System;
-using System.Runtime.CompilerServices;
 
 namespace Prowl.Quill
 {
@@ -195,9 +193,11 @@ namespace Prowl.Quill
         private double _devicePixelRatio = 1.0f;
         private double _pixelWidth = 1.0f;
         private double _pixelHalf = 0.5f;
-        public double DevicePixelRatio {
+        public double DevicePixelRatio
+        {
             get => _devicePixelRatio;
-            set {
+            set
+            {
                 if (value <= 0)
                     throw new ArgumentOutOfRangeException(nameof(value), "Device pixel ratio must be greater than zero.");
                 _devicePixelRatio = value;
@@ -417,7 +417,7 @@ namespace Prowl.Quill
             if (_drawCalls.Count == 0)
                 return;
 
-            if(_globalAlpha != 1.0f)
+            if (_globalAlpha != 1.0f)
                 vertex.a = (byte)(vertex.a * _globalAlpha);
 
             // Premultiply
@@ -766,11 +766,11 @@ namespace Prowl.Quill
             // Step 3: Compute (cx', cy') - center of ellipse in transformed (prime) coordinates
             double term_numerator = (rx_sq * ry_sq) - (rx_sq * y1_prime_sq) - (ry_sq * x1_prime_sq);
             double term_denominator = (rx_sq * y1_prime_sq) + (ry_sq * x1_prime_sq);
-            
+
             double term_sqrt_arg = 0;
             if (term_denominator != 0) // Avoid division by zero
                 term_sqrt_arg = term_numerator / term_denominator;
-            
+
             term_sqrt_arg = Math.Max(0, term_sqrt_arg); // Clamp to avoid issues with floating point inaccuracies
 
             double sign_coef = (largeArcFlag == sweepFlag) ? -1.0 : 1.0;
@@ -931,7 +931,7 @@ namespace Prowl.Quill
         #endregion
 
         public void Fill()
-        { 
+        {
             if (_subPaths.Count == 0)
                 return;
 
@@ -1280,7 +1280,7 @@ namespace Prowl.Quill
         /// <param name="segments">The number of segments used to approximate the curved edge. Higher values create smoother curves.</param>
         public void Pie(double x, double y, double radius, double startAngle, double endAngle, int segments = -1)
         {
-            if(segments == -1)
+            if (segments == -1)
             {
                 double distance = CalculateArcLength(radius, startAngle, endAngle);
                 segments = Math.Max(1, (int)Math.Ceiling(distance / RoundingMinDistance));
@@ -1547,7 +1547,7 @@ namespace Prowl.Quill
         /// <remarks>This is significantly faster than using the path API to draw a circle.</remarks>
         public void CircleFilled(double x, double y, double radius, System.Drawing.Color color, int segments = -1)
         {
-            if(segments == -1)
+            if (segments == -1)
             {
                 // Calculate number of segments based on radius size
                 double distance = Math.PI * 2 * radius;
@@ -1688,7 +1688,7 @@ namespace Prowl.Quill
 
         public void DrawText(SpriteFontBase font, string text, double x, double y, Color color, double rotation = 0f, Vector2 origin = default(Vector2), Vector2? scale = null, double layerDepth = 0f, double characterSpacing = 0f, double lineSpacing = 0f, TextStyle textStyle = TextStyle.None)
         {
-            if(origin != default(Vector2))
+            if (origin != default(Vector2))
             {
                 // Convert normalized origin to Pixels
                 var size = font.MeasureString(text, scale, (float)characterSpacing, (float)lineSpacing);
