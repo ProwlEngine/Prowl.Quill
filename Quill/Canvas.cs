@@ -1013,12 +1013,23 @@ namespace Prowl.Quill
             var tess = new Tess();
             foreach (var path in _subPaths)
             {
-                var copy = path.Points.ToArray();
+                var copy = CollectionsMarshal.AsSpan(path.Points);
                 for (int i = 0; i < copy.Length; i++)
                     copy[i] = TransformPoint(copy[i]) + new Vector2(0.5, 0.5); // And offset by half a pixel to properly align it with Stroke()
-                var points = copy.Select(v => new ContourVertex() { Position = new Vec3() { X = v.x, Y = v.y } }).ToArray();
+
+                
+                //TODO this could be larger than the desired size, so we need to check that correctly. Maybe even updating the 
+                // add contour function to account for this discrepancy
+                var points = ArrayPool<ContourVertex>.Shared.Rent(copy.Length);
+
+                for (int i = 0; i < copy.Length; i++)
+                {
+                    points[i] = new ContourVertex() { Position = new Vec3() { X = copy[i].x, Y = copy[i].y } };
+                }
+                // List<Vector2> points = copy.Select(v => new ContourVertex() { Position = new Vec3() { X = v.x, Y = v.y } }).ToArray();
 
                 tess.AddContour(points, ContourOrientation.Original);
+                ArrayPool<ContourVertex>.Shared.Return(points, true);
             }
             tess.Tessellate(_state.fillMode == WindingMode.OddEven ? WindingRule.EvenOdd : WindingRule.NonZero, ElementType.Polygons, 3);
 
@@ -1051,7 +1062,7 @@ namespace Prowl.Quill
 
             // Transform each point
             Vector2 center = Vector2.zero;
-            var copy = subPath.Points.ToArray();
+            var copy = CollectionsMarshal.AsSpan(subPath.Points);
             for (int i = 0; i < copy.Length; i++)
             {
                 var point = copy[i];
@@ -1130,7 +1141,7 @@ namespace Prowl.Quill
             if (subPath.Points.Count < 2)
                 return;
 
-            var copy = subPath.Points.ToArray();
+            var copy = CollectionsMarshal.AsSpan(subPath.Points);
             // Transform each point
             for (int i = 0; i < subPath.Points.Count; i++)
                 subPath.Points[i] = TransformPoint(subPath.Points[i]);
