@@ -3,10 +3,12 @@ using Prowl.Scribe;
 using Prowl.Scribe.Internal;
 using Prowl.Vector;
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Runtime.InteropServices;
+// using Tess = Prowl.Quill.External.LibTessDotNet.Tess;
 
 namespace Prowl.Quill
 {
@@ -175,7 +177,7 @@ namespace Prowl.Quill
         }
 
         public IReadOnlyList<DrawCall> DrawCalls => _drawCalls.Where(d => d.ElementCount != 0).ToList();
-        public IReadOnlyList<uint> Indices => _indices.AsReadOnly();
+        public uint[] Indices => _indices;
         public IReadOnlyList<Vertex> Vertices => _vertices.AsReadOnly();
         public Vector2 CurrentPoint => _currentSubPath != null && _currentSubPath.Points.Count > 0 ? CurrentPointInternal : Vector2.zero;
 
@@ -185,7 +187,9 @@ namespace Prowl.Quill
         internal List<DrawCall> _drawCalls = new List<DrawCall>();
         internal Stack<object> _textureStack = new Stack<object>();
 
-        internal List<uint> _indices = new List<uint>();
+        internal uint[] _indices = new uint[10000];
+        internal int _indicesCount = 0;
+        public int IndicesCount => _indicesCount;
         internal List<Vertex> _vertices = new List<Vertex>();
 
         private readonly List<SubPath> _subPaths = new List<SubPath>();
@@ -235,7 +239,8 @@ namespace Prowl.Quill
             _textureStack.Clear();
             AddDrawCmd();
 
-            _indices.Clear();
+            // _indices.Clear();
+            _indicesCount = 0;
             _vertices.Clear();
 
             _savedStates.Clear();
@@ -245,10 +250,21 @@ namespace Prowl.Quill
             _subPaths.Clear();
             _currentSubPath = null;
             _isPathOpen = true;
-
             _globalAlpha = 1f;
         }
 
+        private void AddIndex(uint idx)
+        {
+            if (_indicesCount >= _indices.Length)
+            {
+                var newArray = new uint[_indices.Length + 100];
+                Array.Copy(_indices, newArray, _indicesCount);
+                _indices = newArray;
+            }
+
+            _indices[_indicesCount] = idx;
+            _indicesCount++;
+        }
 
         #region State
 
@@ -491,9 +507,9 @@ namespace Prowl.Quill
                 return;
 
             // Add the triangle indices to the list
-            _indices.Add(v1);
-            _indices.Add(v2);
-            _indices.Add(v3);
+            AddIndex(v1);
+            AddIndex(v2);
+            AddIndex(v3);
 
             AddTriangleCount(1);
         }
@@ -1109,15 +1125,15 @@ namespace Prowl.Quill
 
                 if (clockwise)
                 {
-                    _indices.Add(centerIdx);
-                    _indices.Add(current);
-                    _indices.Add(next);
+                    AddIndex(centerIdx);
+                    AddIndex(current);
+                    AddIndex(next);
                 }
                 else
                 {
-                    _indices.Add(centerIdx);
-                    _indices.Add(next);
-                    _indices.Add(current);
+                    AddIndex(centerIdx);
+                    AddIndex(next);
+                    AddIndex(current);
                 }
 
                 //AddTriangleCount(1);
@@ -1147,7 +1163,7 @@ namespace Prowl.Quill
                 subPath.Points[i] = TransformPoint(subPath.Points[i]);
 
             bool isClosed = subPath.IsClosed;
-
+            
             List<double> dashPattern = null;
             if (_state.strokeDashPattern != null)
             {
@@ -1174,9 +1190,9 @@ namespace Prowl.Quill
             // Add triangle _indices
             for (uint i = 0; i < triangles.Count; i++)
             {
-                _indices.Add(startVertexIndex + (i * 3));
-                _indices.Add(startVertexIndex + (i * 3) + 1);
-                _indices.Add(startVertexIndex + (i * 3) + 2);
+                AddIndex(startVertexIndex + (i * 3));
+                AddIndex(startVertexIndex + (i * 3) + 1);
+                AddIndex(startVertexIndex + (i * 3) + 2);
                 //AddTriangleCount(1);
             }
 
@@ -1424,13 +1440,13 @@ namespace Prowl.Quill
             AddVertex(new Vertex(bottomLeft, new Vector2(1, 0), color));
 
             // Add indexes for fill
-            _indices.Add(startVertexIndex);
-            _indices.Add(startVertexIndex + 1);
-            _indices.Add(startVertexIndex + 2);
+            AddIndex(startVertexIndex);
+            AddIndex(startVertexIndex + 1);
+            AddIndex(startVertexIndex + 2);
 
-            _indices.Add(startVertexIndex);
-            _indices.Add(startVertexIndex + 2);
-            _indices.Add(startVertexIndex + 3);
+            AddIndex(startVertexIndex);
+            AddIndex(startVertexIndex + 2);
+            AddIndex(startVertexIndex + 3);
 
             AddTriangleCount(2);
         }
@@ -1594,9 +1610,9 @@ namespace Prowl.Quill
                 uint current = (uint)(startVertexIndex + 1 + i);
                 uint next = (uint)(startVertexIndex + 1 + ((i + 1) % points.Count));
 
-                _indices.Add((uint)startVertexIndex);  // Center
-                _indices.Add(next);                    // Next edge vertex
-                _indices.Add(current);                 // Current edge vertex
+                AddIndex((uint)startVertexIndex);  // Center
+                AddIndex(next);                    // Next edge vertex
+                AddIndex(current);                 // Current edge vertex
 
                 //AddTriangleCount(1);
             }
@@ -1656,9 +1672,9 @@ namespace Prowl.Quill
             // Create triangles (fan from center to edges)
             for (int i = 0; i < segments; i++)
             {
-                _indices.Add((uint)startVertexIndex);                  // Center
-                _indices.Add((uint)(startVertexIndex + 1 + ((i + 1) % segments))); // Next edge vertex
-                _indices.Add((uint)(startVertexIndex + 1 + i));          // Current edge vertex
+                AddIndex((uint)startVertexIndex);                  // Center
+                AddIndex((uint)(startVertexIndex + 1 + ((i + 1) % segments))); // Next edge vertex
+                AddIndex((uint)(startVertexIndex + 1 + i));          // Current edge vertex
 
                 //AddTriangleCount(1);
             }
@@ -1741,9 +1757,9 @@ namespace Prowl.Quill
             // Create triangles (fan from centroid to each pair of edge points)
             for (int i = 0; i < segments + 2; i++)
             {
-                _indices.Add(startVertexIndex);                  // Centroid
-                _indices.Add((uint)(startVertexIndex + 1 + i + 1));      // Next edge vertex
-                _indices.Add((uint)(startVertexIndex + 1 + i));          // Current edge vertex
+                AddIndex(startVertexIndex);                  // Centroid
+                AddIndex((uint)(startVertexIndex + 1 + i + 1));      // Next edge vertex
+                AddIndex((uint)(startVertexIndex + 1 + i));          // Current edge vertex
 
                 //AddTriangleCount(1);
             }

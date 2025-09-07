@@ -312,7 +312,7 @@ void main()
 
             // Upload index data
             GL.BindBuffer(BufferTarget.ElementArrayBuffer, _elementBufferObject);
-            GL.BufferData(BufferTarget.ElementArrayBuffer, canvas.Indices.Count * sizeof(uint), canvas.Indices.ToArray(), BufferUsageHint.StreamDraw);
+            GL.BufferData(BufferTarget.ElementArrayBuffer, canvas.IndicesCount * sizeof(uint), canvas.Indices, BufferUsageHint.StreamDraw);
 
             // Active texture unit for sampling
             GL.ActiveTexture(TextureUnit.Texture0);
