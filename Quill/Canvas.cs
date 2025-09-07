@@ -249,7 +249,11 @@ namespace Prowl.Quill
             _savedStates.Clear();
             _state = new ProwlCanvasState();
             _state.Reset();
-
+            Mesh.ResetPool();
+            MeshUtils.Edge.ResetPool();
+            MeshUtils.Vertex.ResetPool();
+            MeshUtils.Face.ResetPool();
+            
             _subPaths.Clear();
             _currentSubPath = null;
             _isPathOpen = true;

@@ -114,29 +114,50 @@ namespace Prowl.Quill.External
 
         public abstract class Pooled<T> where T : Pooled<T>, new()
         {
-            private static Stack<T> _stack;
-
+            private static Stack<T> _stack = new Stack<T>();
+            private static List<T> _objectPool = new List<T>();
+            private static int _poolIndex = 0;
             public abstract void Reset();
             public virtual void OnFree() {}
 
+            public static int maxCount = 0;
+            
             public static T Create()
             {
-                if (_stack != null && _stack.Count > 0)
+                // // Console.WriteLine($"Stack count before Create: {_stack.Count}");
+                // if (_stack.Count > 0)
+                // {
+                //     var item = _stack.Pop();
+                //     // Console.WriteLine($"Popped item. Stack count after: {_stack.Count}");
+                //     return item;
+                // }
+                // Console.WriteLine("Creating new instance.");
+                if (_poolIndex >= _objectPool.Count - 1)
                 {
-                    return _stack.Pop();
+                    var newObj = new T();
+                    _objectPool.Add(newObj);
+                    _poolIndex++;
+                    return newObj;
                 }
-                return new T();
+                
+                 // Console.WriteLine(_poolIndex);
+                 _poolIndex++;
+                 var obj = _objectPool[_poolIndex];
+                 obj.Free();
+                 return obj;
             }
 
+            public static void ResetPool()
+            {
+                _poolIndex = 0;
+            }
+            
             public void Free()
             {
                 OnFree();
                 Reset();
-                if (_stack == null)
-                {
-                    _stack = new Stack<T>();
-                }
-                _stack.Push((T)this);
+
+                // _stack.Push((T)this);
             }
         }
 

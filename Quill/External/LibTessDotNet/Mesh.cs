@@ -44,7 +44,6 @@ namespace LibTessDotNet
         internal MeshUtils.Vertex _vHead;
         internal MeshUtils.Face _fHead;
         internal MeshUtils.Edge _eHead, _eHeadSym;
-
         public Mesh()
         {
             var v = _vHead = MeshUtils.Vertex.Create();

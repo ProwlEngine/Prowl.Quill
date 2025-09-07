@@ -116,7 +116,7 @@ namespace Prowl.Quill.External
         /// <summary>
         /// If true, will use pooling to reduce GC (compare performance with/without, can vary wildly).
         /// </summary>
-        public bool UsePooling = false;
+        public bool UsePooling = true;
 
         public ContourVertex[] Vertices { get { return _vertices; } }
         public int VertexCount { get { return _vertexCount; } }
