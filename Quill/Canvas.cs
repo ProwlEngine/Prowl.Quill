@@ -178,7 +178,7 @@ namespace Prowl.Quill
 
         public IReadOnlyList<DrawCall> DrawCalls => _drawCalls.Where(d => d.ElementCount != 0).ToList();
         public uint[] Indices => _indices;
-        public IReadOnlyList<Vertex> Vertices => _vertices.AsReadOnly();
+        public Vertex[] Vertices => _vertices;
         public Vector2 CurrentPoint => _currentSubPath != null && _currentSubPath.Points.Count > 0 ? CurrentPointInternal : Vector2.zero;
 
         internal Vector2 CurrentPointInternal => _currentSubPath.Points[_currentSubPath.Points.Count - 1];
@@ -190,7 +190,9 @@ namespace Prowl.Quill
         internal uint[] _indices = new uint[10000];
         internal int _indicesCount = 0;
         public int IndicesCount => _indicesCount;
-        internal List<Vertex> _vertices = new List<Vertex>();
+        internal Vertex[] _vertices = new Vertex[10000];
+        internal int _vertexCount = 0;
+        public int VertexCount => _vertexCount;
 
         private readonly List<SubPath> _subPaths = new List<SubPath>();
         private SubPath? _currentSubPath = null;
@@ -241,7 +243,8 @@ namespace Prowl.Quill
 
             // _indices.Clear();
             _indicesCount = 0;
-            _vertices.Clear();
+            // _vertices.Clear();
+            _vertexCount = 0;
 
             _savedStates.Clear();
             _state = new ProwlCanvasState();
@@ -494,12 +497,19 @@ namespace Prowl.Quill
                 vertex.b = (byte)(vertex.b * (vertex.a / 255f));
             }
 
-
+            if (_vertexCount >= _vertices.Length)
+            {
+                var newVertexArray = new Vertex[_vertices.Length + 100];
+                Array.Copy(_vertices, newVertexArray, _vertices.Length);
+                _vertices = newVertexArray;
+            }
             // Add the vertex to the list
-            _vertices.Add(vertex);
+            // _vertices.Add(vertex);
+            _vertices[_vertexCount] = vertex;
+            _vertexCount++;
         }
 
-        public void AddTriangle() => AddTriangle(_vertices.Count - 3, _vertices.Count - 2, _vertices.Count - 1);
+        public void AddTriangle() => AddTriangle(_vertexCount - 3, _vertexCount - 2, _vertexCount - 1);
         public void AddTriangle(int v1, int v2, int v3) => AddTriangle((uint)v1, (uint)v2, (uint)v3);
         public void AddTriangle(uint v1, uint v2, uint v3)
         {
@@ -1053,7 +1063,7 @@ namespace Prowl.Quill
             var vertices = tess.Vertices;
 
             // Create vertices and triangles
-            uint startVertexIndex = (uint)_vertices.Count;
+            uint startVertexIndex = (uint)_vertexCount;
             for (int i = 0; i < vertices.Length; i++)
             {
                 var vertex = vertices[i];
@@ -1089,7 +1099,7 @@ namespace Prowl.Quill
             center /= copy.Length;
 
             // Store the starting index to reference _vertices
-            uint startVertexIndex = (uint)_vertices.Count;
+            uint startVertexIndex = (uint)_vertexCount;
 
             // Add center vertex with UV at 0.5,0.5 (no AA, Since 0 or 1 in shader is considered edge of shape and get anti aliased)
             AddVertex(new Vertex(center, new Vector2(0.5f, 0.5f), _state.fillColor));
@@ -1178,7 +1188,7 @@ namespace Prowl.Quill
 
 
             // Store the starting index to reference _vertices
-            uint startVertexIndex = (uint)_vertices.Count;
+            uint startVertexIndex = (uint)_vertexCount;
             foreach (var triangle in triangles)
             {
                 var color = triangle.Color;
@@ -1431,7 +1441,7 @@ namespace Prowl.Quill
             Vector2 bottomLeft = TransformPoint(new Vector2(x + width, y));
 
             // Store the starting index to reference _vertices
-            uint startVertexIndex = (uint)_vertices.Count;
+            uint startVertexIndex = (uint)_vertexCount;
 
             // Add all vertices with the transformed coordinates
             AddVertex(new Vertex(topLeft, new Vector2(0, 0), color));
@@ -1519,7 +1529,7 @@ namespace Prowl.Quill
             int blSegments = Math.Max(1, (int)Math.Ceiling(Math.PI * blRadii / 2 / _state.roundingMinDistance));
 
             // Store the starting index to reference _vertices
-            uint startVertexIndex = (uint)_vertices.Count;
+            uint startVertexIndex = (uint)_vertexCount;
 
             // Calculate the center point of the rectangle
             Vector2 center = TransformPoint(new Vector2(x + width / 2, y + height / 2));
@@ -1645,7 +1655,7 @@ namespace Prowl.Quill
             radius += _pixelHalf;
 
             // Store the starting index to reference _vertices
-            uint startVertexIndex = (uint)_vertices.Count;
+            uint startVertexIndex = (uint)_vertexCount;
 
             Vector2 transformedCenter = TransformPoint(new Vector2(x, y));
 
@@ -1723,7 +1733,7 @@ namespace Prowl.Quill
             double centroidY = y + centroidDistance * Math.Sin(midAngle);
 
             // Store the starting index to reference _vertices
-            uint startVertexIndex = (uint)_vertices.Count;
+            uint startVertexIndex = (uint)_vertexCount;
 
             Vector2 transformedCenter = TransformPoint(new Vector2(x, y));
             Vector2 transformedCentroid = TransformPoint(new Vector2(centroidX, centroidY));

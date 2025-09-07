@@ -295,7 +295,7 @@ void main()
 
             // Upload vertex data
             GL.BindBuffer(BufferTarget.ArrayBuffer, _vertexBufferObject);
-            GL.BufferData(BufferTarget.ArrayBuffer, canvas.Vertices.Count * Vertex.SizeInBytes, canvas.Vertices.ToArray(), BufferUsageHint.StreamDraw);
+            GL.BufferData(BufferTarget.ArrayBuffer, canvas.VertexCount * Vertex.SizeInBytes, canvas.Vertices, BufferUsageHint.StreamDraw);
 
             // Set up vertex attributes
             // Position attribute
