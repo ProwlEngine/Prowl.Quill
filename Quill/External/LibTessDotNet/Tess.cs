@@ -177,10 +177,31 @@ namespace Prowl.Quill.External
         {
             var v = _mesh._vHead._next;
 
-            var minVal = new Real[3] { v._coords.X, v._coords.Y, v._coords.Z };
-            var minVert = new MeshUtils.Vertex[3] { v, v, v };
-            var maxVal = new Real[3] { v._coords.X, v._coords.Y, v._coords.Z };
-            var maxVert = new MeshUtils.Vertex[3] { v, v, v };
+            var minVal = ArrayPool<Real>.Shared.Rent(3);
+            var maxVal = ArrayPool<Real>.Shared.Rent(3);
+            var minVert = ArrayPool<MeshUtils.Vertex>.Shared.Rent(3);
+            var maxVert = ArrayPool<MeshUtils.Vertex>.Shared.Rent(3);
+
+
+            minVal[0] = v._coords.X;
+            minVal[1] = v._coords.Y;
+            minVal[2] = v._coords.Z;
+            
+            maxVal[0] = v._coords.X;
+            maxVal[1] = v._coords.Y;
+            maxVal[2] = v._coords.Z;
+
+            minVert[0] = v;
+            minVert[1] = v;
+            minVert[2] = v;
+            
+            maxVert[0] = v;
+            maxVert[1] = v;
+            maxVert[2] = v;
+            // minVal = new Real[3] { v._coords.X, v._coords.Y, v._coords.Z };
+            // maxVert = new MeshUtils.Vertex[3] { v, v, v };
+            // maxVal = new Real[3] { v._coords.X, v._coords.Y, v._coords.Z };
+            // maxVert = new MeshUtils.Vertex[3] { v, v, v };
 
             for (; v != _mesh._vHead; v = v._next)
             {
@@ -201,6 +222,12 @@ namespace Prowl.Quill.External
             {
                 // All vertices are the same -- normal doesn't matter
                 norm = new Vec3 { X = 0, Y = 0, Z = 1 };
+                
+                ArrayPool<Real>.Shared.Return(minVal);
+                ArrayPool<Real>.Shared.Return(maxVal);
+                ArrayPool<MeshUtils.Vertex>.Shared.Return(minVert);
+                ArrayPool<MeshUtils.Vertex>.Shared.Return(maxVert);
+                
                 return;
             }
 
@@ -232,6 +259,11 @@ namespace Prowl.Quill.External
                 i = Vec3.LongAxis(ref d1);
                 norm[i] = 1;
             }
+            
+            ArrayPool<Real>.Shared.Return(minVal);
+            ArrayPool<Real>.Shared.Return(maxVal);
+            ArrayPool<MeshUtils.Vertex>.Shared.Return(minVert);
+            ArrayPool<MeshUtils.Vertex>.Shared.Return(maxVert);
         }
 
         private void CheckOrientation()
