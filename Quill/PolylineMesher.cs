@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 
 namespace Prowl.Quill
 {
@@ -48,12 +49,12 @@ namespace Prowl.Quill
         /// <param name="miterLimit">The miter limit (used when jointStyle is Miter)</param>
         /// <param name="allowOverlap">Whether to allow overlapping vertices for better results with close points</param>
         /// <returns>A list of triangles describing the path</returns>
-        public static IReadOnlyList<Triangle> Create(List<Vector2> points, double thickness, double pixelWidth, System.Drawing.Color color, JointStyle jointStyle = JointStyle.Miter, double miterLimit = 4.0, bool allowOverlap = false, EndCapStyle startCap = EndCapStyle.Butt, EndCapStyle endCap = EndCapStyle.Butt, List<double> dashPattern = null, double dashOffset = 0.0)
+        public static ReadOnlySpan<Triangle> Create(List<Vector2> points, double thickness, double pixelWidth, System.Drawing.Color color, JointStyle jointStyle = JointStyle.Miter, double miterLimit = 4.0, bool allowOverlap = false, EndCapStyle startCap = EndCapStyle.Butt, EndCapStyle endCap = EndCapStyle.Butt, List<double> dashPattern = null, double dashOffset = 0.0)
         {
             TriangleCache.Clear();
 
             if (points.Count < 2 || thickness <= 0 || color.A == 0)
-                return TriangleCache;
+                return CollectionsMarshal.AsSpan(TriangleCache);
 
             // Handle thin lines with alpha adjustment instead of thickness reduction
             if (thickness < 1.0)
@@ -67,7 +68,7 @@ namespace Prowl.Quill
 
             var dashSegments = GenerateDashSegments(points, dashPattern, dashOffset, HalfPixel);
             if (dashSegments.Count == 0)
-                return TriangleCache;
+                return CollectionsMarshal.AsSpan(TriangleCache);
 
             foreach (var dashPoints in dashSegments)
             {
@@ -84,7 +85,7 @@ namespace Prowl.Quill
                                            color, isClosedPolyline);
             }
 
-            return TriangleCache;
+            return CollectionsMarshal.AsSpan(TriangleCache);
         }
 
         private static void CreatePolySegments(List<Vector2> points, double halfThickness)

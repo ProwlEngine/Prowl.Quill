@@ -1226,7 +1226,7 @@ namespace Prowl.Quill
             }
 
             // Add triangle _indices
-            for (uint i = 0; i < triangles.Count; i++)
+            for (uint i = 0; i < triangles.Length; i++)
             {
                 AddIndex(startVertexIndex + (i * 3));
                 AddIndex(startVertexIndex + (i * 3) + 1);
@@ -1234,7 +1234,7 @@ namespace Prowl.Quill
                 //AddTriangleCount(1);
             }
 
-            AddTriangleCount(triangles.Count);
+            AddTriangleCount(triangles.Length);
 
             // Reset the points to their original values
             for (int i = 0; i < subPath.Points.Count; i++)
