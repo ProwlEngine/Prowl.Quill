@@ -83,9 +83,41 @@ namespace LibTessDotNet
 
         public override void Reset()
         {
-            _vHead = null;
-            _fHead = null;
-            _eHead = _eHeadSym = null;
+            var v = _vHead = MeshUtils.Vertex.Create();
+            v.Free();
+            var f = _fHead = MeshUtils.Face.Create();
+            f.Free();
+
+            var pair = MeshUtils.EdgePair.Create();
+            var e = _eHead = pair._e;
+            var eSym = _eHeadSym = pair._eSym;
+
+            v._next = v._prev = v;
+            v._anEdge = null;
+
+            f._next = f._prev = f;
+            f._anEdge = null;
+            f._trail = null;
+            f._marked = false;
+            f._inside = false;
+
+            e._next = e;
+            e._Sym = eSym;
+            e._Onext = null;
+            e._Lnext = null;
+            e._Org = null;
+            e._Lface = null;
+            e._winding = 0;
+            e._activeRegion = null;
+
+            eSym._next = eSym;
+            eSym._Sym = e;
+            eSym._Onext = null;
+            eSym._Lnext = null;
+            eSym._Org = null;
+            eSym._Lface = null;
+            eSym._winding = 0;
+            eSym._activeRegion = null;
         }
 
         public override void OnFree()

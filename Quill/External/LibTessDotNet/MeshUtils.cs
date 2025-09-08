@@ -227,8 +227,10 @@ namespace Prowl.Quill.External
             {
                 var pair = new MeshUtils.EdgePair();
                 pair._e = MeshUtils.Edge.Create();
+                pair._e.Free();
                 pair._e._pair = pair;
                 pair._eSym = MeshUtils.Edge.Create();
+                pair._eSym.Free();
                 pair._eSym._pair = pair;
                 return pair;
             }
@@ -348,6 +350,7 @@ namespace Prowl.Quill.External
         public static void MakeVertex(Edge eOrig, Vertex vNext)
         {
             var vNew = MeshUtils.Vertex.Create();
+            vNew.Free();
 
             // insert in circular doubly-linked list before vNext
             var vPrev = vNext._prev;
@@ -377,6 +380,7 @@ namespace Prowl.Quill.External
         public static void MakeFace(Edge eOrig, Face fNext)
         {
             var fNew = MeshUtils.Face.Create();
+            fNew.Free();
 
             // insert in circular doubly-linked list before fNext
             var fPrev = fNext._prev;
