@@ -154,8 +154,15 @@ namespace Prowl.Quill.External
             _windingRule = WindingRule.EvenOdd;
             _mesh = null;
 
+            if(_vertices != null)
+                ArrayPool<ContourVertex>.Shared.Return(_vertices);
+            
             _vertices = null;
             _vertexCount = 0;
+            
+            if(_elements != null)
+                ArrayPool<int>.Shared.Return(_elements);
+            
             _elements = null;
             _elementCount = 0;
         }
@@ -533,14 +540,13 @@ namespace Prowl.Quill.External
                 maxFaceCount *= 2;
             
             _elements = ArrayPool<int>.Shared.Rent(maxFaceCount * polySize);
-            // _elements = new int[maxFaceCount * polySize];
-
+            _elementCount = maxFaceCount * polySize;
+            
             _vertexCount = maxVertexCount;
-            // _vertices = new ContourVertex[_vertexCount];
-            // ArrayPool<ContourVertex>.Shared.Return(_vertices, true);
             _vertices = ArrayPool<ContourVertex>.Shared.Rent(_vertexCount);
 
             // Output vertices.
+            //The issue is probably with this function and how the dictionary is getting updated
             for (v = _mesh._vHead._next; v != _mesh._vHead; v = v._next)
             {
                 if (v._n != MeshUtils.Undef)
@@ -596,8 +602,6 @@ namespace Prowl.Quill.External
                         _elements[elementIndex++] = MeshUtils.Undef;
                     }
                 }
-
-                _elementCount = elementIndex;
             }
         }
 
@@ -625,14 +629,12 @@ namespace Prowl.Quill.External
 
                 ++_elementCount;
             }
-
-            // ArrayPool<int>.Shared.Return(_elements, true);
-            _elements = ArrayPool<int>.Shared.Rent(_elementCount * 2);
             
-            // ArrayPool<ContourVertex>.Shared.Return(_vertices, true);
+            _elements = ArrayPool<int>.Shared.Rent(_elementCount * 2);
+            _elementCount *= 2;
+            
             _vertices = ArrayPool<ContourVertex>.Shared.Rent(_vertexCount);
-            // _vertices = new ContourVertex[_vertexCount];
-
+            
             int vertIndex = 0;
             int elementIndex = 0;
 
@@ -657,9 +659,6 @@ namespace Prowl.Quill.External
 
                 startVert += vertCount;
             }
-
-            _vertexCount = vertIndex;
-            _elementCount = elementIndex;
         }
 
         private Real SignedArea(ContourVertex[] vertices)
@@ -678,16 +677,17 @@ namespace Prowl.Quill.External
             return 0.5f * area;
         }
 
-        public void AddContour(ContourVertex[] vertices)
+        public void AddContour(ContourVertex[] vertices, int vertexCount)
         {
-            AddContour(vertices, ContourOrientation.Original);
+            AddContour(vertices, vertexCount, ContourOrientation.Original);
         }
 
-        public void AddContour(ContourVertex[] vertices, ContourOrientation forceOrientation)
+        public void AddContour(ContourVertex[] vertices, int vertexCount, ContourOrientation forceOrientation)
         {
             if (_mesh == null)
             {
-                _mesh = new Mesh();
+                _mesh = Mesh.Create();
+                _mesh.Free();
             }
 
             bool reverse = false;
@@ -698,7 +698,7 @@ namespace Prowl.Quill.External
             }
 
             MeshUtils.Edge e = null;
-            for (int i = 0; i < vertices.Length; ++i)
+            for (int i = 0; i < vertexCount; ++i)
             {
                 if (e == null)
                 {

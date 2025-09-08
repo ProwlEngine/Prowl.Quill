@@ -1081,23 +1081,23 @@ namespace Prowl.Quill
                 }
                 // List<Vector2> points = copy.Select(v => new ContourVertex() { Position = new Vec3() { X = v.x, Y = v.y } }).ToArray();
 
-                _tess.AddContour(points, ContourOrientation.Original);
+                _tess.AddContour(points, copy.Length, ContourOrientation.Original);
                 ArrayPool<ContourVertex>.Shared.Return(points, true);
             }
             _tess.Tessellate(_state.fillMode == WindingMode.OddEven ? WindingRule.EvenOdd : WindingRule.NonZero, ElementType.Polygons, 3);
 
-            var indices = _tess.Elements;
-            var vertices = _tess.Vertices;
 
             // Create vertices and triangles
             uint startVertexIndex = (uint)_vertexCount;
             for (int i = 0; i < _tess.VertexCount; i++)
             {
-                var vertex = vertices[i];
+                var vertex = _tess.Vertices[i];
                 Vector2 pos = new Vector2(vertex.Position.X, vertex.Position.Y);
                 AddVertex(new Vertex(pos, new Vector2(0.5, 0.5), _state.fillColor));
             }
+            
             // Create triangles
+            var indices = _tess.Elements;
             for (int i = 0; i < _tess.ElementCount; i += 3)
             {
                 uint v1 = (uint)(startVertexIndex + indices[i]);
