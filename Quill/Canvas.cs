@@ -273,6 +273,7 @@ namespace Prowl.Quill
             MeshUtils.Face.ResetPool();
             SubPath.ResetPool();
             Tess.Cleanup();
+            ListPool<double>.Free();
             
             _subPaths.Clear();
             _currentSubPath = null;
@@ -1201,10 +1202,12 @@ namespace Prowl.Quill
 
             bool isClosed = subPath.IsClosed;
             
-            List<double> dashPattern = null;
+            List<double> dashPattern = ListPool<double>.Rent();
             if (_state.strokeDashPattern != null)
             {
-                dashPattern = new List<double>(_state.strokeDashPattern);
+                dashPattern = _state.strokeDashPattern;
+                // dashPattern = new List<double>(_state.strokeDashPattern);
+                // dashPattern = ListPool<double>.Rent();
                 for (int i = 0; i < dashPattern.Count; i++)
                 {
                     dashPattern[i] *= _state.strokeScale; // Scale the dash pattern by stroke scale
@@ -1213,8 +1216,9 @@ namespace Prowl.Quill
 
             // var pointsSpan = CollectionsMarshal.AsSpan(subPath.Points);
             var triangles = PolylineMesher.Create(subPath.Points, _state.strokeWidth * _state.strokeScale, _pixelWidth, _state.strokeColor, _state.strokeJoint, _state.miterLimit, false, _state.strokeStartCap, _state.strokeEndCap, dashPattern, _state.strokeDashOffset * _state.strokeScale);
-
-
+            
+            ListPool<double>.Return(dashPattern);
+            
             // Store the starting index to reference _vertices
             uint startVertexIndex = (uint)_vertexCount;
             foreach (var triangle in triangles)
