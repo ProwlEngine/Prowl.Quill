@@ -32,7 +32,9 @@
 */
 
 using System;
+using System.Buffers;
 using System.Diagnostics;
+using System.Reflection.Metadata;
 
 namespace Prowl.Quill.External
 {
@@ -49,10 +51,16 @@ namespace LibTessDotNet
     {
         public delegate bool LessOrEqual(TValue lhs, TValue rhs);
 
-        protected class HandleElem
+        protected class HandleElem : MeshUtils.Pooled<HandleElem>
         {
             internal TValue _key;
             internal int _node;
+            public override void Reset()
+            {
+                // throw new NotImplementedException();
+                _key = null;
+                _node = 0;
+            }
         }
 
         private LessOrEqual _leq;
@@ -68,8 +76,8 @@ namespace LibTessDotNet
         {
             _leq = leq;
 
-            _nodes = new int[initialSize + 1];
-            _handles = new HandleElem[initialSize + 1];
+            _nodes = ArrayPool<int>.Shared.Rent(initialSize + 1);
+            _handles = ArrayPool<HandleElem>.Shared.Rent(initialSize + 1);
 
             _size = 0;
             _max = initialSize;
@@ -77,7 +85,32 @@ namespace LibTessDotNet
             _initialized = false;
 
             _nodes[1] = 1;
-            _handles[1] = new HandleElem { _key = null };
+            var handle = HandleElem.Create();
+            handle.Free();
+            _handles[1] = handle;
+        }
+
+        public void ResetHeap(int initialSize, LessOrEqual leq)
+        {
+            _leq = leq;
+            if(_nodes != null) ArrayPool<int>.Shared.Return(_nodes, true);
+            _nodes = ArrayPool<int>.Shared.Rent(initialSize + 1);
+            
+            if(_handles != null) ArrayPool<HandleElem>.Shared.Return(_handles, true);
+            // _handles = new HandleElem[initialSize + 1];
+            _handles = ArrayPool<HandleElem>.Shared.Rent(initialSize + 1);
+
+            _size = 0;
+            _max = initialSize;
+            _freeList = 0;
+            _initialized = false;
+
+            
+            HandleElem.ResetPool();
+            _nodes[1] = 1;
+            var handle = HandleElem.Create();
+            handle.Free();
+            _handles[1] = handle;
         }
 
         private void FloatDown(int curr)
@@ -165,7 +198,10 @@ namespace LibTessDotNet
             _nodes[curr] = free;
             if (_handles[free] == null)
             {
-                _handles[free] = new HandleElem { _key = value, _node = curr };
+                var handle = HandleElem.Create();
+                handle._key = value;
+                handle._node = curr;
+                _handles[free] = handle;
             }
             else
             {

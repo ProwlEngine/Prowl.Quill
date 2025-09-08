@@ -68,11 +68,12 @@ namespace LibTessDotNet
         public void Reset(int initialSize, PriorityHeap<TValue>.LessOrEqual leq)
         {
             _leq = leq;
-            _heap = new PriorityHeap<TValue>(initialSize, leq);
+            // _heap = new PriorityHeap<TValue>(initialSize, leq);
 
             // if(_keys != null)
-                ArrayPool<TValue>.Shared.Return(_keys, true);
+            _heap.ResetHeap(initialSize, leq);
             
+            ArrayPool<TValue>.Shared.Return(_keys, true);
             _keys = ArrayPool<TValue>.Shared.Rent(initialSize);
 
             _size = 0;
