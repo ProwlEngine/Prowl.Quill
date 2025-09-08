@@ -217,36 +217,57 @@ namespace Prowl.Quill
             data.EndUV2 = new Vector2(endU, 1);
         }
 
-
+        private static List<List<Vector2>> _dashSegments = new List<List<Vector2>>();
         private static List<List<Vector2>> GenerateDashSegments(List<Vector2> points, List<double> dashPattern, double dashOffset, Vector2 halfPixelOffset)
         {
-            var allDashSegments = new List<List<Vector2>>();
+            foreach (List<Vector2> segment in _dashSegments)
+            {
+                ListPool<Vector2>.Return(segment);
+            }
+            ListPool<Vector2>.Free();
+            _dashSegments.Clear();
+            // var allDashSegments = new List<List<Vector2>>();
 
             if (points.Count < 2 || dashPattern == null || dashPattern.Count == 0 || dashPattern.Sum() <= Epsilon)
             {
-                if (points.Count >= 2)
-                {
-                    var singleSegment = points.Select(p => p + halfPixelOffset).ToList();
-                    allDashSegments.Add(singleSegment);
-                }
-                return allDashSegments;
+                var singleSegment = ListPool<Vector2>.Rent();
+                
+                if(points.Count >= 2)
+                    foreach (var point in points)
+                    {
+                        singleSegment.Add(point + halfPixelOffset);
+                    }
+                
+                _dashSegments.Add(singleSegment);
+                return _dashSegments;
             }
 
             var dashState = InitializeDashState(dashPattern, dashOffset);
-            var currentDashPoints = new List<Vector2>();
+            var currentDashPoints = ListPool<Vector2>.Rent();
 
-            ProcessLineSegments(points, halfPixelOffset, dashPattern, dashState, currentDashPoints, allDashSegments);
+            ProcessLineSegments(points, halfPixelOffset, dashPattern, dashState, currentDashPoints, _dashSegments);
 
             // Add final dash segment if we're in dash state
             if (dashState.IsInDash && currentDashPoints.Count >= 2)
             {
-                allDashSegments.Add(new List<Vector2>(currentDashPoints));
+                List<Vector2> newList = ListPool<Vector2>.Rent();
+                foreach (Vector2 segment in currentDashPoints)
+                {
+                    newList.Add(segment);
+                }
+                _dashSegments.Add(newList);
+                ListPool<Vector2>.Return(currentDashPoints);
             }
 
-            allDashSegments.RemoveAll(dash => dash.Count < 2);
-            return allDashSegments;
+            _dashSegments.RemoveAll(ShouldRemoveDashSegment);
+            return _dashSegments;
         }
 
+        private static bool ShouldRemoveDashSegment(List<Vector2> dashSegment)
+        {
+            return dashSegment.Count < 2;
+        }
+        
         private struct DashState
         {
             public int PatternIndex;
@@ -392,7 +413,12 @@ namespace Prowl.Quill
                 // End of dash - save current segment
                 if (currentDashPoints.Count >= 2)
                 {
-                    allDashSegments.Add(new List<Vector2>(currentDashPoints));
+                    List<Vector2> newList = ListPool<Vector2>.Rent();
+                    foreach (Vector2 segment in currentDashPoints)
+                    {
+                        newList.Add(segment);
+                    }
+                    allDashSegments.Add(newList);
                 }
                 currentDashPoints.Clear();
             }

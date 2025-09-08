@@ -42,12 +42,22 @@ namespace LibTessDotNet
 {
     internal partial class Tess
     {
-        internal class ActiveRegion
+        internal class ActiveRegion : MeshUtils.Pooled<ActiveRegion>
         {
+            public ActiveRegion() {}
             internal MeshUtils.Edge _eUp;
             internal Dict<ActiveRegion>.Node _nodeUp;
             internal int _windingNumber;
             internal bool _inside, _sentinel, _dirty, _fixUpperEdge;
+            public override void Reset()
+            {
+                _nodeUp = null;
+                _windingNumber = 0;
+                _inside = false;
+                _sentinel = false;
+                _dirty = false;
+                _fixUpperEdge = false;
+            }
         }
 
         private ActiveRegion RegionBelow(ActiveRegion reg)
@@ -167,7 +177,8 @@ namespace LibTessDotNet
         /// </summary>
         private ActiveRegion AddRegionBelow(ActiveRegion regAbove, MeshUtils.Edge eNewUp)
         {
-            var regNew = new ActiveRegion();
+            var regNew = ActiveRegion.Create();
+            regNew.Free();
 
             regNew._eUp = eNewUp;
             regNew._nodeUp = _dict.InsertBefore(regAbove._nodeUp, regNew);
@@ -286,7 +297,10 @@ namespace LibTessDotNet
                 eTopLeft = RegionBelow(regUp)._eUp._Rprev;
             }
 
-            ActiveRegion regPrev = regUp, reg;
+            ActiveRegion regPrev = regUp;
+            ActiveRegion reg = ActiveRegion.Create();
+            reg.Free();
+            // ActiveRegion regPrev = regUp, reg;
             var ePrev = eTopLeft;
             while (true)
             {
@@ -904,7 +918,8 @@ namespace LibTessDotNet
         /// </summary>
         private void ConnectLeftVertex(MeshUtils.Vertex vEvent)
         {
-            var tmp = new ActiveRegion();
+            var tmp = ActiveRegion.Create();
+            tmp.Reset();
 
             // Get a pointer to the active region containing vEvent
             tmp._eUp = vEvent._anEdge._Sym;
@@ -1023,7 +1038,8 @@ namespace LibTessDotNet
             e._Dst._t = t;
             _event = e._Dst; // initialize it
 
-            var reg = new ActiveRegion();
+            var reg = ActiveRegion.Create();
+            reg.Reset();
             reg._eUp = e;
             reg._windingNumber = 0;
             reg._inside = false;

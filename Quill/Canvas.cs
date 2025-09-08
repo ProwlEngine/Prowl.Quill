@@ -212,7 +212,7 @@ namespace Prowl.Quill
         internal int _vertexCount = 0;
         public int VertexCount => _vertexCount;
 
-        private readonly List<SubPath> _subPaths = new List<SubPath>();
+        private readonly List<SubPath> _subPaths = new();
         private SubPath? _currentSubPath = null;
         private bool _isPathOpen = false;
 
@@ -272,6 +272,7 @@ namespace Prowl.Quill
             MeshUtils.Vertex.ResetPool();
             MeshUtils.Face.ResetPool();
             SubPath.ResetPool();
+            Tess.ActiveRegion.ResetPool();
             
             _subPaths.Clear();
             _currentSubPath = null;
@@ -1209,8 +1210,8 @@ namespace Prowl.Quill
                 }
             }
 
-            var pointsSpan = CollectionsMarshal.AsSpan(subPath.Points);
-            var triangles = PolylineMesher.Create(pointsSpan, _state.strokeWidth * _state.strokeScale, _pixelWidth, _state.strokeColor, _state.strokeJoint, _state.miterLimit, false, _state.strokeStartCap, _state.strokeEndCap, dashPattern, _state.strokeDashOffset * _state.strokeScale);
+            // var pointsSpan = CollectionsMarshal.AsSpan(subPath.Points);
+            var triangles = PolylineMesher.Create(subPath.Points, _state.strokeWidth * _state.strokeScale, _pixelWidth, _state.strokeColor, _state.strokeJoint, _state.miterLimit, false, _state.strokeStartCap, _state.strokeEndCap, dashPattern, _state.strokeDashOffset * _state.strokeScale);
 
 
             // Store the starting index to reference _vertices
