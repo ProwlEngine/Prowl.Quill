@@ -464,6 +464,9 @@ namespace Common
             _canvas.RestoreState();
         }
 
+        private List<double> _dashPattern01 = new List<double>() { 10, 5, 2, 2 };
+        private List<double> _dashPattern02 = new List<double>() { 5, 5 };
+        private double[] _lineWidths = {0.25f, 1.0f, 3.0f, 4.0f};
         private void DrawLineStylesDemo(double x, double y, double width, double height)
         {
             // Draw group background and title
@@ -475,10 +478,10 @@ namespace Common
             _canvas.SetStrokeColor(Color.FromArgb(255, 255, 255, 255));
 
             // Thin line
-            double[] widths = [0.25f, 1.0f, 3.0f, 4.0f];
+            // double[] widths = [0.25f, 1.0f, 3.0f, 4.0f];
             for (int i=0; i<4; i++)
             {
-                _canvas.SetStrokeWidth(widths[i]);
+                _canvas.SetStrokeWidth(_lineWidths[i]);
                 _canvas.BeginPath();
                 _canvas.MoveTo(0, -45 + (i * 17));
                 _canvas.LineTo(160, -55 + (i * 17));
@@ -501,14 +504,14 @@ namespace Common
             _canvas.MoveTo(0, 40 + 5);
             _canvas.LineTo(160, 40 - 5);
             _canvas.SetStrokeColor(Color.FromArgb(255, 255, 100, 100));
-            _canvas.SetStrokeDash(new List<double>() { 10, 5, 2, 2 }, 0);
+            _canvas.SetStrokeDash(_dashPattern01, 0);
             _canvas.Stroke();
 
             _canvas.BeginPath();
             _canvas.MoveTo(0, 60 + 5);
             _canvas.LineTo(160, 60 - 5);
             _canvas.SetStrokeColor(Color.FromArgb(255, 100, 100, 255));
-            _canvas.SetStrokeDash(new List<double>() { 5, 5 }, 0);
+            _canvas.SetStrokeDash(_dashPattern02, 0);
             _canvas.Stroke();
 
             _canvas.RestoreState();
@@ -581,6 +584,7 @@ namespace Common
                 _canvas.SetStrokeJoint(join);
                 _canvas.SetStrokeColor(color);
                 _canvas.SetStrokeWidth(5);
+                _canvas.SetStrokeDash(new List<double>() { 10, 5, 2, 2 });
 
                 // Base animation for spikes
                 double baseAnim = Math.Sin(_time * 1) * 0.5f + 0.5f; // 0 to 1 range
