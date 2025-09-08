@@ -164,15 +164,33 @@ namespace Prowl.Quill
 
     public partial class Canvas
     {
-        internal class SubPath
+        internal class SubPath : MeshUtils.Pooled<SubPath>
         {
-            internal List<Vector2> Points { get; }
-            internal bool IsClosed { get; }
+            internal List<Vector2> Points { get; set; } = new List<Vector2>();
+            internal bool IsClosed { get; set; }
 
             public SubPath(List<Vector2> points, bool isClosed)
             {
                 Points = points;
                 IsClosed = isClosed;
+            }
+            
+            public SubPath() {}
+
+            public void SetData(List<Vector2> points, bool isClosed)
+            {
+                Points = points;
+                IsClosed = isClosed;
+            }
+            public override void OnFree()
+            {
+                Points.Clear();
+                IsClosed = false;
+            }
+
+            public override void Reset()
+            {
+                // throw new NotImplementedException();
             }
         }
 
@@ -253,6 +271,7 @@ namespace Prowl.Quill
             MeshUtils.Edge.ResetPool();
             MeshUtils.Vertex.ResetPool();
             MeshUtils.Face.ResetPool();
+            SubPath.ResetPool();
             
             _subPaths.Clear();
             _currentSubPath = null;
@@ -592,7 +611,9 @@ namespace Prowl.Quill
             if (!_isPathOpen)
                 BeginPath();
 
-            _currentSubPath = new SubPath(new List<Vector2>(), false);
+            // _currentSubPath = new SubPath(new List<Vector2>(), false);
+            _currentSubPath = SubPath.Create();
+            _currentSubPath.Free();
             _currentSubPath.Points.Add(new Vector2(x, y));
             _subPaths.Add(_currentSubPath);
         }
@@ -1188,7 +1209,8 @@ namespace Prowl.Quill
                 }
             }
 
-            var triangles = PolylineMesher.Create(subPath.Points, _state.strokeWidth * _state.strokeScale, _pixelWidth, _state.strokeColor, _state.strokeJoint, _state.miterLimit, false, _state.strokeStartCap, _state.strokeEndCap, dashPattern, _state.strokeDashOffset * _state.strokeScale);
+            var pointsSpan = CollectionsMarshal.AsSpan(subPath.Points);
+            var triangles = PolylineMesher.Create(pointsSpan, _state.strokeWidth * _state.strokeScale, _pixelWidth, _state.strokeColor, _state.strokeJoint, _state.miterLimit, false, _state.strokeStartCap, _state.strokeEndCap, dashPattern, _state.strokeDashOffset * _state.strokeScale);
 
 
             // Store the starting index to reference _vertices
