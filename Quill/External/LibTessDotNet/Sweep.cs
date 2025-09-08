@@ -1048,14 +1048,17 @@ namespace LibTessDotNet
             reg._dirty = false;
             reg._nodeUp = _dict.Insert(reg);
         }
-
+        
         /// <summary>
         /// We maintain an ordering of edge intersections with the sweep line.
         /// This order is maintained in a dynamic dictionary.
         /// </summary>
         private void InitEdgeDict()
         {
-            _dict = new Dict<ActiveRegion>(EdgeLeq);
+            if(_dict == null)
+                _dict = new Dict<ActiveRegion>(EdgeLeq);
+            else
+                _dict.Reset();
 
             AddSentinel(-SentinelCoord, SentinelCoord, -SentinelCoord);
             AddSentinel(-SentinelCoord, SentinelCoord, +SentinelCoord);
@@ -1080,7 +1083,7 @@ namespace LibTessDotNet
                 DeleteRegion(reg);
             }
 
-            _dict = null;
+            // _dict = null;
         }
 
         /// <summary>
