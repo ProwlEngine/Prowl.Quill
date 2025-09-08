@@ -32,6 +32,7 @@
 */
 
 using System;
+using System.Buffers;
 using System.Diagnostics;
 
 namespace Prowl.Quill.External
@@ -125,6 +126,27 @@ namespace Prowl.Quill.External
         public int ElementCount { get { return _elementCount; } }
 
         public Tess()
+        {
+            _normal = Vec3.Zero;
+            _bminX = _bminY = _bmaxX = _bmaxY = 0;
+
+            _windingRule = WindingRule.EvenOdd;
+            _mesh = null;
+            
+            if(_vertices != null)
+                ArrayPool<ContourVertex>.Shared.Return(_vertices);
+            
+            _vertices = null;
+            _vertexCount = 0;
+            
+            if(_elements != null)
+                ArrayPool<int>.Shared.Return(_elements);
+            
+            _elements = null;
+            _elementCount = 0;
+        }
+
+        public void ResetTess()
         {
             _normal = Vec3.Zero;
             _bminX = _bminY = _bmaxX = _bmaxY = 0;
@@ -505,13 +527,18 @@ namespace Prowl.Quill.External
                 ++maxFaceCount;
             }
 
+            
             _elementCount = maxFaceCount;
             if (elementType == ElementType.ConnectedPolygons)
                 maxFaceCount *= 2;
-            _elements = new int[maxFaceCount * polySize];
+            
+            _elements = ArrayPool<int>.Shared.Rent(maxFaceCount * polySize);
+            // _elements = new int[maxFaceCount * polySize];
 
             _vertexCount = maxVertexCount;
-            _vertices = new ContourVertex[_vertexCount];
+            // _vertices = new ContourVertex[_vertexCount];
+            // ArrayPool<ContourVertex>.Shared.Return(_vertices, true);
+            _vertices = ArrayPool<ContourVertex>.Shared.Rent(_vertexCount);
 
             // Output vertices.
             for (v = _mesh._vHead._next; v != _mesh._vHead; v = v._next)
@@ -569,6 +596,8 @@ namespace Prowl.Quill.External
                         _elements[elementIndex++] = MeshUtils.Undef;
                     }
                 }
+
+                _elementCount = elementIndex;
             }
         }
 
@@ -597,8 +626,12 @@ namespace Prowl.Quill.External
                 ++_elementCount;
             }
 
-            _elements = new int[_elementCount * 2];
-            _vertices = new ContourVertex[_vertexCount];
+            // ArrayPool<int>.Shared.Return(_elements, true);
+            _elements = ArrayPool<int>.Shared.Rent(_elementCount * 2);
+            
+            // ArrayPool<ContourVertex>.Shared.Return(_vertices, true);
+            _vertices = ArrayPool<ContourVertex>.Shared.Rent(_vertexCount);
+            // _vertices = new ContourVertex[_vertexCount];
 
             int vertIndex = 0;
             int elementIndex = 0;
@@ -624,6 +657,9 @@ namespace Prowl.Quill.External
 
                 startVert += vertCount;
             }
+
+            _vertexCount = vertIndex;
+            _elementCount = elementIndex;
         }
 
         private Real SignedArea(ContourVertex[] vertices)

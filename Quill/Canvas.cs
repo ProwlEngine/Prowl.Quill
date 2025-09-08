@@ -1057,12 +1057,13 @@ namespace Prowl.Quill
             RestoreState();
         }
 
+        private Tess _tess = new Tess();
         public void FillComplex()
         {
             if (_subPaths.Count == 0)
                 return;
 
-            var tess = new Tess();
+            _tess.ResetTess();
             foreach (var path in _subPaths)
             {
                 var copy = CollectionsMarshal.AsSpan(path.Points);
@@ -1080,24 +1081,24 @@ namespace Prowl.Quill
                 }
                 // List<Vector2> points = copy.Select(v => new ContourVertex() { Position = new Vec3() { X = v.x, Y = v.y } }).ToArray();
 
-                tess.AddContour(points, ContourOrientation.Original);
+                _tess.AddContour(points, ContourOrientation.Original);
                 ArrayPool<ContourVertex>.Shared.Return(points, true);
             }
-            tess.Tessellate(_state.fillMode == WindingMode.OddEven ? WindingRule.EvenOdd : WindingRule.NonZero, ElementType.Polygons, 3);
+            _tess.Tessellate(_state.fillMode == WindingMode.OddEven ? WindingRule.EvenOdd : WindingRule.NonZero, ElementType.Polygons, 3);
 
-            var indices = tess.Elements;
-            var vertices = tess.Vertices;
+            var indices = _tess.Elements;
+            var vertices = _tess.Vertices;
 
             // Create vertices and triangles
             uint startVertexIndex = (uint)_vertexCount;
-            for (int i = 0; i < vertices.Length; i++)
+            for (int i = 0; i < _tess.VertexCount; i++)
             {
                 var vertex = vertices[i];
                 Vector2 pos = new Vector2(vertex.Position.X, vertex.Position.Y);
                 AddVertex(new Vertex(pos, new Vector2(0.5, 0.5), _state.fillColor));
             }
             // Create triangles
-            for (int i = 0; i < indices.Length; i += 3)
+            for (int i = 0; i < _tess.ElementCount; i += 3)
             {
                 uint v1 = (uint)(startVertexIndex + indices[i]);
                 uint v2 = (uint)(startVertexIndex + indices[i + 1]);
