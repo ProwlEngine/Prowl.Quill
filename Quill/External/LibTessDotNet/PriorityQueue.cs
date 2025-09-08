@@ -32,6 +32,7 @@
 */
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 
@@ -64,9 +65,35 @@ namespace LibTessDotNet
             _initialized = false;
         }
 
-        class StackItem
+        public void Reset(int initialSize, PriorityHeap<TValue>.LessOrEqual leq)
+        {
+            _leq = leq;
+            _heap = new PriorityHeap<TValue>(initialSize, leq);
+
+            // if(_keys != null)
+                ArrayPool<TValue>.Shared.Return(_keys, true);
+            
+            _keys = ArrayPool<TValue>.Shared.Rent(initialSize);
+
+            _size = 0;
+            _max = initialSize;
+            _initialized = false;
+        }
+
+        class StackItem : MeshUtils.Pooled<StackItem>
         {
             internal int p, r;
+
+            public void SetData(int pValue, int rValue)
+            {
+                p = pValue;
+                r = rValue;
+            }
+            public override void Reset()
+            {
+                p = 0;
+                r = 0;
+            }
         };
 
         static void Swap(ref int a, ref int b)
@@ -76,24 +103,33 @@ namespace LibTessDotNet
             b = tmp;
         }
 
+        private Stack<StackItem> _stack = new();
         public void Init()
         {
-            var stack = new Stack<StackItem>();
+            // var stack = new Stack<StackItem>();
+            _stack.Clear();
             int p, r, i, j, piv;
             uint seed = 2016473283;
 
             p = 0;
             r = _size - 1;
-            _order = new int[_size + 1];
+            
+            if(_order != null)
+                ArrayPool<int>.Shared.Return(_order);
+            // _order = new int[_size + 1];
+            _order = ArrayPool<int>.Shared.Rent(_size + 1);
+            
             for (piv = 0, i = p; i <= r; ++piv, ++i)
             {
                 _order[i] = piv;
             }
 
-            stack.Push(new StackItem { p = p, r = r });
-            while (stack.Count > 0)
+            var newItem = StackItem.Create();
+            newItem.SetData(p, r);
+            _stack.Push(newItem);
+            while (_stack.Count > 0)
             {
-                var top = stack.Pop();
+                var top = _stack.Pop();
                 p = top.p;
                 r = top.r;
 
@@ -114,12 +150,18 @@ namespace LibTessDotNet
                     Swap(ref _order[i], ref _order[j]);
                     if (i - p < r - j)
                     {
-                        stack.Push(new StackItem { p = j + 1, r = r });
+                        newItem = StackItem.Create();
+                        newItem.SetData(j + 1, r);
+                        _stack.Push(newItem);
+                        // _stack.Push(new StackItem { p = j + 1, r = r });
                         r = i - 1;
                     }
                     else
                     {
-                        stack.Push(new StackItem { p = p, r = i - 1 });
+                        newItem = StackItem.Create();
+                        newItem.SetData(p, i - 1);
+                        _stack.Push(newItem);
+                        // _stack.Push(new StackItem { p = p, r = i - 1 });
                         p = j + 1;
                     }
                 }
@@ -142,7 +184,7 @@ namespace LibTessDotNet
                 Debug.Assert(_leq(_keys[_order[i + 1]], _keys[_order[i]]), "Wrong sort");
             }
 #endif
-
+            StackItem.ResetPool();
             _max = _size;
             _initialized = true;
             _heap.Init();
