@@ -12,7 +12,7 @@ public static class ListPool<T>
         if (_poolIndex >= _pool.Count)
         {
             _pool.Add(new List<T>());
-            Console.WriteLine("Creating a new list");
+            // Console.WriteLine("Creating a new list");
         }
         
         // if (!_pool.TryPop(out var list))
