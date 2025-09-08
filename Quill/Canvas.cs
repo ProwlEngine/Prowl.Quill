@@ -1569,7 +1569,7 @@ namespace Prowl.Quill
             // Add center vertex with UV at 0.5,0.5 (no AA)
             AddVertex(new Vertex(center, new Vector2(0.5f, 0.5f), color));
 
-            List<Vector2> points = new List<Vector2>();
+            List<Vector2> points = ListPool<Vector2>.Rent();
 
             // Top-left corner
             if (tlRadii > 0)
@@ -1659,6 +1659,7 @@ namespace Prowl.Quill
                 //AddTriangleCount(1);
             }
             AddTriangleCount(points.Count);
+            ListPool<Vector2>.Return(points);
         }
 
         /// <summary>
