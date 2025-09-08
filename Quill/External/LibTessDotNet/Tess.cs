@@ -138,6 +138,12 @@ namespace Prowl.Quill.External
             _elementCount = 0;
         }
 
+        public static void Cleanup()
+        {
+            Dict<ActiveRegion>.Node.ResetPool();
+            ActiveRegion.ResetPool();
+        }
+
         private void ComputeNormal(ref Vec3 norm)
         {
             var v = _mesh._vHead._next;

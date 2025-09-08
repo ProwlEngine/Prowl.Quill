@@ -38,7 +38,7 @@ namespace LibTessDotNet
 {
     internal class Dict<TValue> where TValue : class
     {
-        public class Node
+        public class Node : MeshUtils.Pooled<Node>
         {
             internal TValue _key;
             internal Node _prev, _next;
@@ -46,6 +46,12 @@ namespace LibTessDotNet
             public TValue Key { get { return _key; } }
             public Node Prev { get { return _prev; } }
             public Node Next { get { return _next; } }
+            public override void Reset()
+            {
+                _key = null;
+                _prev = null;
+                _next = null;
+            }
         }
 
         public delegate bool LessOrEqual(TValue lhs, TValue rhs);
@@ -73,7 +79,9 @@ namespace LibTessDotNet
                 node = node._prev;
             } while (node._key != null && !_leq(node._key, key));
 
-            var newNode = new Node { _key = key };
+            var newNode = Node.Create();
+            newNode.Free();
+            newNode._key = key;
             newNode._next = node._next;
             node._next._prev = newNode;
             newNode._prev = node;

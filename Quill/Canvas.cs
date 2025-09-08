@@ -272,7 +272,7 @@ namespace Prowl.Quill
             MeshUtils.Vertex.ResetPool();
             MeshUtils.Face.ResetPool();
             SubPath.ResetPool();
-            Tess.ActiveRegion.ResetPool();
+            Tess.Cleanup();
             
             _subPaths.Clear();
             _currentSubPath = null;
