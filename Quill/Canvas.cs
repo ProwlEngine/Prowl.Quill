@@ -1225,12 +1225,12 @@ namespace Prowl.Quill
             List<double> dashPattern = ListPool<double>.Rent();
             if (_state.strokeDashPattern != null)
             {
-                dashPattern = _state.strokeDashPattern;
+                // dashPattern = _state.strokeDashPattern;
                 // dashPattern = new List<double>(_state.strokeDashPattern);
                 // dashPattern = ListPool<double>.Rent();
-                for (int i = 0; i < dashPattern.Count; i++)
+                for (int i = 0; i < _state.strokeDashPattern.Count; i++)
                 {
-                    dashPattern[i] *= _state.strokeScale; // Scale the dash pattern by stroke scale
+                    dashPattern.Add(_state.strokeDashPattern[i] * _state.strokeScale); // Scale the dash pattern by stroke scale
                 }
             }
 
