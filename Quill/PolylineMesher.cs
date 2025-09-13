@@ -38,8 +38,8 @@ namespace Prowl.Quill
                 Color = color;
             }
         }
-
-        /// <summary>
+#if NET5_0_OR_GREATER
+ /// <summary>
         /// Creates a list of triangles describing a solid path through the input points.
         /// </summary>
         /// <param name="points">The points of the path</param>
@@ -87,7 +87,59 @@ namespace Prowl.Quill
 
             return CollectionsMarshal.AsSpan(TriangleCache);
         }
+#else
+         /// <summary>
+        /// Creates a list of triangles describing a solid path through the input points.
+        /// </summary>
+        /// <param name="points">The points of the path</param>
+        /// <param name="thickness">The path's thickness</param>
+        /// <param name="color">The path's color</param>
+        /// <param name="jointStyle">The path's joint style</param>
+        /// <param name="miterLimit">The miter limit (used when jointStyle is Miter)</param>
+        /// <param name="allowOverlap">Whether to allow overlapping vertices for better results with close points</param>
+        /// <returns>A list of triangles describing the path</returns>
+        public static IReadOnlyList<Triangle> Create(List<Vector2> points, double thickness, double pixelWidth, System.Drawing.Color color, JointStyle jointStyle = JointStyle.Miter, double miterLimit = 4.0, bool allowOverlap = false, EndCapStyle startCap = EndCapStyle.Butt, EndCapStyle endCap = EndCapStyle.Butt, List<double> dashPattern = null, double dashOffset = 0.0)
+        {
+            TriangleCache.Clear();
 
+            if (points.Count < 2 || thickness <= 0 || color.A == 0)
+                return TriangleCache;
+
+            // Handle thin lines with alpha adjustment instead of thickness reduction
+            if (thickness < 1.0)
+            {
+                color = System.Drawing.Color.FromArgb((int)(color.A * thickness), color.R, color.G, color.B);
+                thickness = 1.0;
+            }
+
+            thickness += pixelWidth;
+            double halfThickness = thickness / 2;
+
+            var dashSegments = GenerateDashSegments(points, dashPattern, dashOffset, HalfPixel);
+            if (dashSegments.Count == 0)
+                return TriangleCache;
+
+            foreach (var dashPoints in dashSegments)
+            {
+                if (dashPoints.Count < 2) continue;
+
+                CreatePolySegments(dashPoints, halfThickness);
+                if (PolySegmentCache.Count == 0) continue;
+
+                // Check if this is a closed polyline
+                bool isClosedPolyline = dashPoints.Count > 2 &&
+                                        (dashPoints[0] - dashPoints[^1]).sqrMagnitude < EpsilonSqr;
+
+                GenerateTrianglesForPolyline(jointStyle, miterLimit, allowOverlap, startCap, endCap,
+                    color, isClosedPolyline);
+            }
+
+            return TriangleCache;
+        }
+#endif
+       
+       
+        
         private static void CreatePolySegments(List<Vector2> points, double halfThickness)
         {
             PolySegmentCache.Clear();

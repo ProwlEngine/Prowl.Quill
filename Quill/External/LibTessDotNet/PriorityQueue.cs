@@ -104,7 +104,7 @@ namespace LibTessDotNet
             b = tmp;
         }
 
-        private Stack<StackItem> _stack = new();
+        private Stack<StackItem> _stack = new Stack<StackItem>();
         public void Init()
         {
             // var stack = new Stack<StackItem>();
@@ -117,7 +117,7 @@ namespace LibTessDotNet
             
             if(_order != null)
                 ArrayPool<int>.Shared.Return(_order);
-            // _order = new int[_size + 1];
+
             _order = ArrayPool<int>.Shared.Rent(_size + 1);
             
             for (piv = 0, i = p; i <= r; ++piv, ++i)

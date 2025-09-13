@@ -586,7 +586,6 @@ namespace Prowl.Quill.External
             _vertices = ArrayPool<ContourVertex>.Shared.Rent(_vertexCount);
 
             // Output vertices.
-            //The issue is probably with this function and how the dictionary is getting updated
             for (v = _mesh._vHead._next; v != _mesh._vHead; v = v._next)
             {
                 if (v._n != MeshUtils.Undef)
