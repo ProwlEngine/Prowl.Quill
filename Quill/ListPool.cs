@@ -12,14 +12,7 @@ public static class ListPool<T>
         if (_poolIndex >= _pool.Count)
         {
             _pool.Add(new List<T>());
-            // Console.WriteLine("Creating a new list");
         }
-        
-        // if (!_pool.TryPop(out var list))
-        // {
-        //     list = new List<T>();
-        //     Console.WriteLine("Creating a new list");
-        // }
 
         var list = _pool[_poolIndex];
         _poolIndex++;
@@ -32,7 +25,6 @@ public static class ListPool<T>
             throw new ArgumentNullException(nameof(list));
 
         list.Clear();
-        // _pool.Push(list);
     }
 
     public static void Free()
