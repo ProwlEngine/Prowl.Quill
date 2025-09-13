@@ -194,7 +194,7 @@ namespace Prowl.Quill
             }
         }
 
-        public IReadOnlyList<DrawCall> DrawCalls => _drawCalls.Where(d => d.ElementCount != 0).ToList();
+        public IReadOnlyList<DrawCall> DrawCalls => _drawCalls.AsReadOnly();
         public uint[] Indices => _indices;
         public Vertex[] Vertices => _vertices;
         public Vector2 CurrentPoint => _currentSubPath != null && _currentSubPath.Points.Count > 0 ? CurrentPointInternal : Vector2.zero;
@@ -202,6 +202,7 @@ namespace Prowl.Quill
         internal Vector2 CurrentPointInternal => _currentSubPath.Points[_currentSubPath.Points.Count - 1];
         internal ICanvasRenderer _renderer;
 
+        internal bool _isNewDrawCallRequested = false;
         internal List<DrawCall> _drawCalls = new List<DrawCall>();
         internal Stack<object> _textureStack = new Stack<object>();
 
@@ -259,8 +260,6 @@ namespace Prowl.Quill
         {
             _drawCalls.Clear();
             _textureStack.Clear();
-            AddDrawCmd();
-            
             _indicesCount = 0;
             _vertexCount = 0;
 
@@ -487,14 +486,16 @@ namespace Prowl.Quill
 
         #region Draw Calls
 
-        public void AddDrawCmd() => _drawCalls.Add(new DrawCall());
-        public void AddTriangle() => AddTriangle(_vertexCount - 3, _vertexCount - 2, _vertexCount - 1);
+        /// <summary>
+        /// Ensure that future commands are not batched as part of any existing draw call.
+        /// </summary>
+        public void RequestNewDrawCall()
+        {
+            _isNewDrawCallRequested = true;
+        }
         public void AddTriangle(int v1, int v2, int v3) => AddTriangle((uint)v1, (uint)v2, (uint)v3);
         public void AddTriangle(uint v1, uint v2, uint v3)
         {
-            if (_drawCalls.Count == 0)
-                return;
-
             // Add the triangle indices to the list
             AddIndex(v1);
             AddIndex(v2);
@@ -506,7 +507,9 @@ namespace Prowl.Quill
         private void AddTriangleCount(int count)
         {
             if (_drawCalls.Count == 0)
-                return;
+            {
+                _drawCalls.Add(new DrawCall());
+            }
 
             DrawCall lastDrawCall = _drawCalls[_drawCalls.Count - 1];
 
@@ -515,15 +518,19 @@ namespace Prowl.Quill
                 lastDrawCall.scissor == _state.scissor &&
                 lastDrawCall.Brush.EqualsOther(_state.brush);
 
-            if (!isDrawStateSame)
+            if (!isDrawStateSame || _isNewDrawCallRequested)
             {
-                // If the texture or scissor state has changed, add a new draw call
-                AddDrawCmd();
+                // If draw state has changed and the last draw call has already been used, add a new draw call
+                if (lastDrawCall.ElementCount != 0)
+                    _drawCalls.Add(new DrawCall());
+
                 lastDrawCall = _drawCalls[_drawCalls.Count - 1];
                 lastDrawCall.Texture = _state.texture;
                 lastDrawCall.scissor = _state.scissor;
                 lastDrawCall.scissorExtent = _state.scissorExtent;
                 lastDrawCall.Brush = _state.brush;
+
+                _isNewDrawCallRequested = false;
             }
 
             lastDrawCall.ElementCount += count * 3;
