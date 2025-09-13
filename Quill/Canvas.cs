@@ -258,19 +258,13 @@ namespace Prowl.Quill
             _drawCalls.Clear();
             _textureStack.Clear();
             AddDrawCmd();
-
-            // _indices.Clear();
+            
             _indicesCount = 0;
-            // _vertices.Clear();
             _vertexCount = 0;
 
             _savedStates.Clear();
             _state = new ProwlCanvasState();
             _state.Reset();
-            Mesh.ResetPool();
-            MeshUtils.Edge.ResetPool();
-            MeshUtils.Vertex.ResetPool();
-            MeshUtils.Face.ResetPool();
             SubPath.ResetPool();
             Tess.Cleanup();
             ListPool<double>.Free();
@@ -279,19 +273,6 @@ namespace Prowl.Quill
             _currentSubPath = null;
             _isPathOpen = true;
             _globalAlpha = 1f;
-        }
-
-        private void AddIndex(uint idx)
-        {
-            if (_indicesCount >= _indices.Length)
-            {
-                var newArray = new uint[_indices.Length + 100];
-                Array.Copy(_indices, newArray, _indicesCount);
-                _indices = newArray;
-            }
-
-            _indices[_indicesCount] = idx;
-            _indicesCount++;
         }
 
         #region State
@@ -505,35 +486,6 @@ namespace Prowl.Quill
         #region Draw Calls
 
         public void AddDrawCmd() => _drawCalls.Add(new DrawCall());
-
-        public void AddVertex(Vertex vertex)
-        {
-            if (_drawCalls.Count == 0)
-                return;
-
-            if (_globalAlpha != 1.0f)
-                vertex.a = (byte)(vertex.a * _globalAlpha);
-
-            // Premultiply
-            if (vertex.a != 255)
-            {
-                vertex.r = (byte)(vertex.r * (vertex.a / 255f));
-                vertex.g = (byte)(vertex.g * (vertex.a / 255f));
-                vertex.b = (byte)(vertex.b * (vertex.a / 255f));
-            }
-
-            if (_vertexCount >= _vertices.Length)
-            {
-                var newVertexArray = new Vertex[_vertices.Length + 100];
-                Array.Copy(_vertices, newVertexArray, _vertices.Length);
-                _vertices = newVertexArray;
-            }
-            // Add the vertex to the list
-            // _vertices.Add(vertex);
-            _vertices[_vertexCount] = vertex;
-            _vertexCount++;
-        }
-
         public void AddTriangle() => AddTriangle(_vertexCount - 3, _vertexCount - 2, _vertexCount - 1);
         public void AddTriangle(int v1, int v2, int v3) => AddTriangle((uint)v1, (uint)v2, (uint)v3);
         public void AddTriangle(uint v1, uint v2, uint v3)
@@ -576,6 +528,53 @@ namespace Prowl.Quill
             _drawCalls[_drawCalls.Count - 1] = lastDrawCall;
         }
 
+        public void AddVertex(Vertex vertex)
+        {
+            if (_drawCalls.Count == 0)
+                return;
+
+            if (_globalAlpha != 1.0f)
+                vertex.a = (byte)(vertex.a * _globalAlpha);
+
+            // Premultiply
+            if (vertex.a != 255)
+            {
+                vertex.r = (byte)(vertex.r * (vertex.a / 255f));
+                vertex.g = (byte)(vertex.g * (vertex.a / 255f));
+                vertex.b = (byte)(vertex.b * (vertex.a / 255f));
+            }
+
+            if (_vertexCount >= _vertices.Length)
+            {
+                var newVertexArray = new Vertex[_vertices.Length + 100];
+                Array.Copy(_vertices, newVertexArray, _vertices.Length);
+                _vertices = newVertexArray;
+            }
+            // Add the vertex to the list
+            // _vertices.Add(vertex);
+            _vertices[_vertexCount] = vertex;
+            _vertexCount++;
+        }
+        
+        /// <summary>
+        /// Adds an index to the index array.
+        /// If needed, it resizes the array to accomodate the new elements.
+        /// Each resizing adds 100 slots, so the number of resizes is minimized.
+        /// </summary>
+        /// <param name="idx"></param>
+        private void AddIndex(uint idx)
+        {
+            if (_indicesCount >= _indices.Length)
+            {
+                var newArray = new uint[_indices.Length + 100];
+                Array.Copy(_indices, newArray, _indicesCount);
+                _indices = newArray;
+            }
+
+            _indices[_indicesCount] = idx;
+            _indicesCount++;
+        }
+        
         public void Render()
         {
             _renderer.RenderCalls(this, _drawCalls);
@@ -1208,9 +1207,7 @@ namespace Prowl.Quill
         {
             if (subPath.Points.Count < 2)
                 return;
-
             
-            //TODO we are double translating the points here because of the way this works. not ideal, need to fix. 
             var copy = CollectionsMarshal.AsSpan(subPath.Points);
             var originalPositionStorage = ArrayPool<Vector2>.Shared.Rent(copy.Length);
             // Transform each point
@@ -1225,16 +1222,12 @@ namespace Prowl.Quill
             List<double> dashPattern = ListPool<double>.Rent();
             if (_state.strokeDashPattern != null)
             {
-                // dashPattern = _state.strokeDashPattern;
-                // dashPattern = new List<double>(_state.strokeDashPattern);
-                // dashPattern = ListPool<double>.Rent();
                 for (int i = 0; i < _state.strokeDashPattern.Count; i++)
                 {
                     dashPattern.Add(_state.strokeDashPattern[i] * _state.strokeScale); // Scale the dash pattern by stroke scale
                 }
             }
-
-            // var pointsSpan = CollectionsMarshal.AsSpan(subPath.Points);
+            
             var triangles = PolylineMesher.Create(subPath.Points, _state.strokeWidth * _state.strokeScale, _pixelWidth, _state.strokeColor, _state.strokeJoint, _state.miterLimit, false, _state.strokeStartCap, _state.strokeEndCap, dashPattern, _state.strokeDashOffset * _state.strokeScale);
             
             ListPool<double>.Return(dashPattern);
@@ -1967,7 +1960,7 @@ namespace Prowl.Quill
             double det = ux * vy - uy * vx; // 2D cross product
             return Math.Atan2(det, dot); // Returns angle in radians from -PI to PI
         }
-
+        
         #endregion
 
         public void Dispose()

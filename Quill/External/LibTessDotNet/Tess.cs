@@ -167,8 +167,16 @@ namespace Prowl.Quill.External
             _elementCount = 0;
         }
 
+        /// <summary>
+        /// This clean up function resets all pools so we can reuse the objects. It should be called whenever we clear the canvas
+        /// to ensure that it's ready to render the next frame
+        /// </summary>
         public static void Cleanup()
         {
+            Mesh.ResetPool();
+            MeshUtils.Edge.ResetPool();
+            MeshUtils.Vertex.ResetPool();
+            MeshUtils.Face.ResetPool();
             Dict<ActiveRegion>.Node.ResetPool();
             ActiveRegion.ResetPool();
         }

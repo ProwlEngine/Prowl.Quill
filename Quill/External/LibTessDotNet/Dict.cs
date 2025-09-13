@@ -62,17 +62,11 @@ namespace LibTessDotNet
         public Dict(LessOrEqual leq)
         {
             _leq = leq;
-
-            var newNode = Node.Create();
-            newNode.Free();
-            _head = newNode;
-            _head._prev = _head;
-            _head._next = _head;
+            Reset();
         }
 
         public void Reset()
         {
-            // _leq = leq;
             var newNode = Node.Create();
             newNode.Free();
             _head = newNode;
