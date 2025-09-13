@@ -1068,10 +1068,14 @@ namespace Prowl.Quill
             foreach (var path in _subPaths)
             {
                 var copy = CollectionsMarshal.AsSpan(path.Points);
+                var originalPointArray = ArrayPool<Vector2>.Shared.Rent(copy.Length);
                 for (int i = 0; i < copy.Length; i++)
-                    copy[i] = TransformPoint(copy[i]) + new Vector2(0.5, 0.5); // And offset by half a pixel to properly align it with Stroke()
+                {
+                    originalPointArray[i] = copy[i];
+                    copy[i] = TransformPoint(copy[i]) + new Vector2(0.5, 0.5);
+                } // And offset by half a pixel to properly align it with Stroke()}
 
-                
+
                 //TODO this could be larger than the desired size, so we need to check that correctly. Maybe even updating the 
                 // add contour function to account for this discrepancy
                 var points = ArrayPool<ContourVertex>.Shared.Rent(copy.Length);
@@ -1083,7 +1087,14 @@ namespace Prowl.Quill
                 // List<Vector2> points = copy.Select(v => new ContourVertex() { Position = new Vec3() { X = v.x, Y = v.y } }).ToArray();
 
                 _tess.AddContour(points, copy.Length, ContourOrientation.Original);
+
+                for (int i = 0; i < copy.Length; i++)
+                {
+                    copy[i] = originalPointArray[i];
+                }
+                
                 ArrayPool<ContourVertex>.Shared.Return(points, true);
+                ArrayPool<Vector2>.Shared.Return(originalPointArray);
             }
             _tess.Tessellate(_state.fillMode == WindingMode.OddEven ? WindingRule.EvenOdd : WindingRule.NonZero, ElementType.Polygons, 3);
 
@@ -1117,12 +1128,13 @@ namespace Prowl.Quill
             // Transform each point
             Vector2 center = Vector2.zero;
             var copy = CollectionsMarshal.AsSpan(subPath.Points);
+            var newPointArray = ArrayPool<Vector2>.Shared.Rent(copy.Length);
             for (int i = 0; i < copy.Length; i++)
             {
                 var point = copy[i];
                 point = TransformPoint(point) + new Vector2(0.5, 0.5); // And offset by half a pixel to properly center it with Stroke()
                 center += point;
-                copy[i] = point;
+                newPointArray[i] = point;
             }
             center /= copy.Length;
 
@@ -1136,8 +1148,8 @@ namespace Prowl.Quill
             int segments = copy.Length;
             for (int i = 0; i < segments; i++) // Edge vertices have UV at 0,0 for anti-aliasing
             {
-                Vector2 dirToPoint = (copy[i] - center).normalized;
-                AddVertex(new Vertex(copy[i] + (dirToPoint * _pixelWidth), new Vector2(0, 0), _state.fillColor));
+                Vector2 dirToPoint = (newPointArray[i] - center).normalized;
+                AddVertex(new Vertex(newPointArray[i] + (dirToPoint * _pixelWidth), new Vector2(0, 0), _state.fillColor));
             }
 
             // Create triangles (fan from center to edges)
@@ -1178,6 +1190,8 @@ namespace Prowl.Quill
             }
 
             AddTriangleCount(segments);
+            
+            ArrayPool<Vector2>.Shared.Return(newPointArray);
         }
 
         public void Stroke()
@@ -1195,10 +1209,16 @@ namespace Prowl.Quill
             if (subPath.Points.Count < 2)
                 return;
 
+            
+            //TODO we are double translating the points here because of the way this works. not ideal, need to fix. 
             var copy = CollectionsMarshal.AsSpan(subPath.Points);
+            var originalPositionStorage = ArrayPool<Vector2>.Shared.Rent(copy.Length);
             // Transform each point
-            for (int i = 0; i < subPath.Points.Count; i++)
-                subPath.Points[i] = TransformPoint(subPath.Points[i]);
+            for (int i = 0; i < copy.Length; i++)
+            {
+                originalPositionStorage[i] = copy[i];
+                copy[i] = TransformPoint(copy[i]);
+            }
 
             bool isClosed = subPath.IsClosed;
             
@@ -1242,7 +1262,9 @@ namespace Prowl.Quill
 
             // Reset the points to their original values
             for (int i = 0; i < subPath.Points.Count; i++)
-                subPath.Points[i] = copy[i];
+                subPath.Points[i] = originalPositionStorage[i];
+            
+            ArrayPool<Vector2>.Shared.Return(originalPositionStorage);
         }
 
         public void FillAndStroke()
