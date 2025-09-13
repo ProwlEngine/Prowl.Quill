@@ -1069,25 +1069,19 @@ namespace Prowl.Quill
             {
                 #if NET5_0_OR_GREATER
                 var copy = CollectionsMarshal.AsSpan(path.Points);
-                var originalPointArray = ArrayPool<Vector2>.Shared.Rent(copy.Length);
-                for (int i = 0; i < copy.Length; i++)
-                {
-                    originalPointArray[i] = copy[i];
-                    copy[i] = TransformPoint(copy[i]) + new Vector2(0.5, 0.5);
-                } // And offset by half a pixel to properly align it with Stroke()}
                 int length = copy.Length;
                 #else
                 var copy = new List<Vector2>(path.Points);
-                var originalPointArray = ArrayPool<Vector2>.Shared.Rent(copy.Count);
-                for (int i = 0; i < copy.Count; i++)
+                int length = copy.Count;
+                #endif
+
+                var originalPointArray = ArrayPool<Vector2>.Shared.Rent(length);
+                for (int i = 0; i < length; i++)
                 {
                     originalPointArray[i] = copy[i];
                     copy[i] = TransformPoint(copy[i]) + new Vector2(0.5, 0.5);
                 } // And offset by half a pixel to properly align it with Stroke()}
-
-                int length = copy.Count;
-                #endif
-
+                
                 
                 var points = ArrayPool<ContourVertex>.Shared.Rent(length);
 
@@ -1141,30 +1135,22 @@ namespace Prowl.Quill
             
             #if NET5_0_OR_GREATER
             var copy = CollectionsMarshal.AsSpan(subPath.Points);
-            var newPointArray = ArrayPool<Vector2>.Shared.Rent(copy.Length);
-            for (int i = 0; i < copy.Length; i++)
-            {
-                var point = copy[i];
-                point = TransformPoint(point) + new Vector2(0.5, 0.5); // And offset by half a pixel to properly center it with Stroke()
-                center += point;
-                newPointArray[i] = point;
-            }
-            center /= copy.Length;
             int segments = copy.Length;
             #else
             var copy = new List<Vector2>(subPath.Points);
-            var newPointArray = ArrayPool<Vector2>.Shared.Rent(copy.Count);
-            for (int i = 0; i < copy.Count; i++)
+            int segments = copy.Count;
+            #endif
+
+            var newPointArray = ArrayPool<Vector2>.Shared.Rent(segments);
+            for (int i = 0; i < segments; i++)
             {
                 var point = copy[i];
                 point = TransformPoint(point) + new Vector2(0.5, 0.5); // And offset by half a pixel to properly center it with Stroke()
                 center += point;
                 newPointArray[i] = point;
             }
-            center /= copy.Count;
-            int segments = copy.Count;
-            #endif
-
+            center /= segments;
+            
             // Store the starting index to reference _vertices
             uint startVertexIndex = (uint)_vertexCount;
 
@@ -1238,24 +1224,19 @@ namespace Prowl.Quill
             
             #if NET5_0_OR_GREATER
                 var copy = CollectionsMarshal.AsSpan(subPath.Points);
-                var originalPositionStorage = ArrayPool<Vector2>.Shared.Rent(copy.Length);
-                // Transform each point
-                for (int i = 0; i < copy.Length; i++)
-                {
-                    originalPositionStorage[i] = copy[i];
-                    copy[i] = TransformPoint(copy[i]);
-                }
+                int copyLength = copy.Length;
             #else
                 var copy = new List<Vector2>(subPath.Points);
-                var originalPositionStorage = ArrayPool<Vector2>.Shared.Rent(copy.Count);
-                // Transform each point
-                for (int i = 0; i < copy.Count; i++)
-                {
-                    originalPositionStorage[i] = copy[i];
-                    copy[i] = TransformPoint(copy[i]);
-                }
+                int copyLength = copy.Count;
             #endif
 
+            var originalPositionStorage = ArrayPool<Vector2>.Shared.Rent(copyLength);
+            for (int i = 0; i < copyLength; i++)
+            {
+                originalPositionStorage[i] = copy[i];
+                copy[i] = TransformPoint(copy[i]);
+            }
+            
             bool isClosed = subPath.IsClosed;
             
             List<double> dashPattern = ListPool<double>.Rent();
@@ -1270,9 +1251,9 @@ namespace Prowl.Quill
             var triangles = PolylineMesher.Create(subPath.Points, _state.strokeWidth * _state.strokeScale, _pixelWidth, _state.strokeColor, _state.strokeJoint, _state.miterLimit, false, _state.strokeStartCap, _state.strokeEndCap, dashPattern, _state.strokeDashOffset * _state.strokeScale);
             
             #if NET5_0_OR_GREATER
-            int length = triangles.Length;
+            int triangleArrayLength = triangles.Length;
             #else
-            int length = triangles.Count;
+            int triangleArrayLength = triangles.Count;
             #endif
             
             ListPool<double>.Return(dashPattern);
@@ -1288,7 +1269,7 @@ namespace Prowl.Quill
             }
 
             // Add triangle _indices
-            for (uint i = 0; i < length; i++)
+            for (uint i = 0; i < triangleArrayLength; i++)
             {
                 AddIndex(startVertexIndex + (i * 3));
                 AddIndex(startVertexIndex + (i * 3) + 1);
@@ -1296,7 +1277,7 @@ namespace Prowl.Quill
                 //AddTriangleCount(1);
             }
 
-            AddTriangleCount(length);
+            AddTriangleCount(triangleArrayLength);
 
             // Reset the points to their original values
             for (int i = 0; i < subPath.Points.Count; i++)
