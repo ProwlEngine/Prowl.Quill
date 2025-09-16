@@ -209,6 +209,8 @@ namespace Prowl.Quill
         private double _pixelHalf = 0.5f;
 
         private IMarkdownImageProvider? _markdownImageProvider = null;
+        
+        private Tess _tess = new Tess();
 
         private Type[] _meshTypes = {typeof(MeshUtils.Vertex),  typeof(MeshUtils.Edge), typeof(MeshUtils.Face), typeof(Mesh), typeof(Dict<Tess.ActiveRegion>.Node)};
 
@@ -1051,7 +1053,8 @@ namespace Prowl.Quill
             if (_subPaths.Count == 0)
                 return;
 
-            var tess = new Tess();
+            var tess = _tess;
+            tess.Reset();
             foreach (var path in _subPaths)
             {
                 int length = path.Points.Count;
@@ -1070,7 +1073,7 @@ namespace Prowl.Quill
                 }
                 // List<Vector2> points = copy.Select(v => new ContourVertex() { Position = new Vec3() { X = v.x, Y = v.y } }).ToArray();
 
-                tess.AddContour(points, ContourOrientation.Original);
+                tess.AddContour(points, tess.VertexCount, ContourOrientation.Original);
                 ArrayPool<ContourVertex>.Shared.Return(points, true);
                 ArrayPool<Vector2>.Shared.Return(copy);
             }
@@ -1081,14 +1084,14 @@ namespace Prowl.Quill
 
             // Create vertices and triangles
             uint startVertexIndex = (uint)_vertexCount;
-            for (int i = 0; i < vertices.Length; i++)
+            for (int i = 0; i < tess.VertexCount; i++)
             {
                 var vertex = vertices[i];
                 Vector2 pos = new Vector2(vertex.Position.X, vertex.Position.Y);
                 AddVertex(new Vertex(pos, new Vector2(0.5, 0.5), _state.fillColor));
             }
             // Create triangles
-            for (int i = 0; i < indices.Length; i += 3)
+            for (int i = 0; i < tess.ElementCount; i += 3)
             {
                 uint v1 = (uint)(startVertexIndex + indices[i]);
                 uint v2 = (uint)(startVertexIndex + indices[i + 1]);
