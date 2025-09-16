@@ -1184,6 +1184,7 @@ namespace Prowl.Quill
                 StrokeSubPath(subPath);
         }
 
+        private List<double> _scaledDashPattern = new List<double>();
         private void StrokeSubPath(SubPath subPath)
         {
             if (subPath.Points.Count < 2)
@@ -1201,17 +1202,16 @@ namespace Prowl.Quill
 
             bool isClosed = subPath.IsClosed;
             
-            List<double> dashPattern = null;
+            _scaledDashPattern.Clear();
             if (_state.strokeDashPattern != null)
             {
-                dashPattern = new List<double>(_state.strokeDashPattern);
-                for (int i = 0; i < dashPattern.Count; i++)
+                for (int i = 0; i < _state.strokeDashPattern.Count; i++)
                 {
-                    dashPattern[i] *= _state.strokeScale; // Scale the dash pattern by stroke scale
+                    _scaledDashPattern.Add(_state.strokeDashPattern[i] * _state.strokeScale); // Scale the dash pattern by stroke scale
                 }
             }
 
-            var triangles = PolylineMesher.Create(subPath.Points, _state.strokeWidth * _state.strokeScale, _pixelWidth, _state.strokeColor, _state.strokeJoint, _state.miterLimit, false, _state.strokeStartCap, _state.strokeEndCap, dashPattern, _state.strokeDashOffset * _state.strokeScale);
+            var triangles = PolylineMesher.Create(subPath.Points, _state.strokeWidth * _state.strokeScale, _pixelWidth, _state.strokeColor, _state.strokeJoint, _state.miterLimit, false, _state.strokeStartCap, _state.strokeEndCap, _scaledDashPattern, _state.strokeDashOffset * _state.strokeScale);
 
 
             // Store the starting index to reference _vertices
