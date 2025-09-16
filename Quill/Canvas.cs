@@ -240,10 +240,8 @@ namespace Prowl.Quill
             _drawCalls.Clear();
             _textureStack.Clear();
             AddDrawCmd();
-
-            // _indices.Clear();
+            
             _indicesCount = 0;
-            // _vertices.Clear();
             _vertexCount = 0;
 
             _savedStates.Clear();
@@ -260,7 +258,7 @@ namespace Prowl.Quill
         {
             if (_indicesCount >= _indices.Length)
             {
-                var newArray = new uint[_indices.Length + 100];
+                var newArray = new uint[_indices.Length * 2];
                 Array.Copy(_indices, newArray, _indicesCount);
                 _indices = newArray;
             }
@@ -499,7 +497,7 @@ namespace Prowl.Quill
 
             if (_vertexCount >= _vertices.Length)
             {
-                var newVertexArray = new Vertex[_vertices.Length + 100];
+                var newVertexArray = new Vertex[_vertices.Length * 2];
                 Array.Copy(_vertices, newVertexArray, _vertices.Length);
                 _vertices = newVertexArray;
             }
@@ -1039,16 +1037,17 @@ namespace Prowl.Quill
             var tess = new Tess();
             foreach (var path in _subPaths)
             {
-                var copy = CollectionsMarshal.AsSpan(path.Points);
-                for (int i = 0; i < copy.Length; i++)
-                    copy[i] = TransformPoint(copy[i]) + new Vector2(0.5, 0.5); // And offset by half a pixel to properly align it with Stroke()
+                int length = path.Points.Count;
+                var copy = ArrayPool<Vector2>.Shared.Rent(length);
+                for (int i = 0; i < length; i++)
+                    copy[i] = TransformPoint(path.Points[i]) + new Vector2(0.5, 0.5); // And offset by half a pixel to properly align it with Stroke()
 
                 
                 //TODO this could be larger than the desired size, so we need to check that correctly. Maybe even updating the 
                 // add contour function to account for this discrepancy
-                var points = ArrayPool<ContourVertex>.Shared.Rent(copy.Length);
+                var points = ArrayPool<ContourVertex>.Shared.Rent(length);
 
-                for (int i = 0; i < copy.Length; i++)
+                for (int i = 0; i < length; i++)
                 {
                     points[i] = new ContourVertex() { Position = new Vec3() { X = copy[i].x, Y = copy[i].y } };
                 }
@@ -1056,6 +1055,7 @@ namespace Prowl.Quill
 
                 tess.AddContour(points, ContourOrientation.Original);
                 ArrayPool<ContourVertex>.Shared.Return(points, true);
+                ArrayPool<Vector2>.Shared.Return(copy);
             }
             tess.Tessellate(_state.fillMode == WindingMode.OddEven ? WindingRule.EvenOdd : WindingRule.NonZero, ElementType.Polygons, 3);
 
@@ -1088,25 +1088,25 @@ namespace Prowl.Quill
 
             // Transform each point
             Vector2 center = Vector2.zero;
-            var copy = CollectionsMarshal.AsSpan(subPath.Points);
-            for (int i = 0; i < copy.Length; i++)
+            // var copy = CollectionsMarshal.AsSpan(subPath.Points);
+            int pointArrayLength = subPath.Points.Count;
+            var copy = ArrayPool<Vector2>.Shared.Rent(pointArrayLength);
+            for (int i = 0; i < pointArrayLength; i++)
             {
-                var point = copy[i];
+                var point = subPath.Points[i];
                 point = TransformPoint(point) + new Vector2(0.5, 0.5); // And offset by half a pixel to properly center it with Stroke()
                 center += point;
                 copy[i] = point;
             }
-            center /= copy.Length;
+            center /= pointArrayLength;
 
             // Store the starting index to reference _vertices
             uint startVertexIndex = (uint)_vertexCount;
 
             // Add center vertex with UV at 0.5,0.5 (no AA, Since 0 or 1 in shader is considered edge of shape and get anti aliased)
             AddVertex(new Vertex(center, new Vector2(0.5f, 0.5f), _state.fillColor));
-
-            // Generate vertices around the path
-            int segments = copy.Length;
-            for (int i = 0; i < segments; i++) // Edge vertices have UV at 0,0 for anti-aliasing
+            
+            for (int i = 0; i < pointArrayLength; i++) // Edge vertices have UV at 0,0 for anti-aliasing
             {
                 Vector2 dirToPoint = (copy[i] - center).normalized;
                 AddVertex(new Vertex(copy[i] + (dirToPoint * _pixelWidth), new Vector2(0, 0), _state.fillColor));
@@ -1128,10 +1128,10 @@ namespace Prowl.Quill
             bool clockwise = cross <= 0;
 
             // Use the determined orientation for all triangles
-            for (int i = 0; i < segments; i++)
+            for (int i = 0; i < pointArrayLength; i++)
             {
                 uint current = (uint)(startVertexIndex + 1 + i);
-                uint next = (uint)(startVertexIndex + 1 + ((i + 1) % segments));
+                uint next = (uint)(startVertexIndex + 1 + ((i + 1) % pointArrayLength));
 
                 if (clockwise)
                 {
@@ -1149,7 +1149,8 @@ namespace Prowl.Quill
                 //AddTriangleCount(1);
             }
 
-            AddTriangleCount(segments);
+            AddTriangleCount(pointArrayLength);
+            ArrayPool<Vector2>.Shared.Return(copy);
         }
 
         public void Stroke()
@@ -1167,10 +1168,15 @@ namespace Prowl.Quill
             if (subPath.Points.Count < 2)
                 return;
 
-            var copy = CollectionsMarshal.AsSpan(subPath.Points);
+            // var copy = CollectionsMarshal.AsSpan(subPath.Points);
+            int length = subPath.Points.Count;
+            var originalArray = ArrayPool<Vector2>.Shared.Rent(length);
             // Transform each point
             for (int i = 0; i < subPath.Points.Count; i++)
+            {
+                originalArray[i] = subPath.Points[i];
                 subPath.Points[i] = TransformPoint(subPath.Points[i]);
+            }
 
             bool isClosed = subPath.IsClosed;
             
@@ -1203,14 +1209,15 @@ namespace Prowl.Quill
                 AddIndex(startVertexIndex + (i * 3));
                 AddIndex(startVertexIndex + (i * 3) + 1);
                 AddIndex(startVertexIndex + (i * 3) + 2);
-                //AddTriangleCount(1);
             }
 
             AddTriangleCount(triangles.Count);
 
             // Reset the points to their original values
             for (int i = 0; i < subPath.Points.Count; i++)
-                subPath.Points[i] = copy[i];
+                subPath.Points[i] = originalArray[i];
+            
+            ArrayPool<Vector2>.Shared.Return(originalArray);
         }
 
         public void FillAndStroke()
