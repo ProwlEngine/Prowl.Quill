@@ -715,7 +715,7 @@ namespace Prowl.Quill.External
             if (_mesh == null)
             {
                 _mesh = Mesh.Create();
-                _mesh.Free();
+                // _mesh.Free();
             }
 
             bool reverse = false;

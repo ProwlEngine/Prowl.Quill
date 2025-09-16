@@ -124,27 +124,12 @@ namespace Prowl.Quill.External
             
             public static T Create()
             {
-                // // Console.WriteLine($"Stack count before Create: {_stack.Count}");
-                // if (_stack.Count > 0)
-                // {
-                //     var item = _stack.Pop();
-                //     // Console.WriteLine($"Popped item. Stack count after: {_stack.Count}");
-                //     return item;
-                // }
-                // Console.WriteLine("Creating new instance.");
-                if (_poolIndex >= _objectPool.Count - 1)
+                if (_stack.TryPop(out T obj))
                 {
-                    var newObj = new T();
-                    _objectPool.Add(newObj);
-                    _poolIndex++;
-                    return newObj;
+                    return obj;
                 }
-                
-                 // Console.WriteLine(_poolIndex);
-                 _poolIndex++;
-                 var obj = _objectPool[_poolIndex];
-                 obj.Free();
-                 return obj;
+
+                return new T();
             }
 
             public static void ResetPool()
@@ -154,10 +139,10 @@ namespace Prowl.Quill.External
             
             public void Free()
             {
-                OnFree();
                 Reset();
+                OnFree();
 
-                // _stack.Push((T)this);
+                _stack.Push((T)this);
             }
         }
 
@@ -210,6 +195,7 @@ namespace Prowl.Quill.External
 
             public override void Reset()
             {
+                _anEdge.Free();
                 _prev = _next = null;
                 _anEdge = null;
                 _trail = null;
@@ -227,10 +213,10 @@ namespace Prowl.Quill.External
             {
                 var pair = new MeshUtils.EdgePair();
                 pair._e = MeshUtils.Edge.Create();
-                pair._e.Free();
+                // pair._e.Free();
                 pair._e._pair = pair;
                 pair._eSym = MeshUtils.Edge.Create();
-                pair._eSym.Free();
+                // pair._eSym.Free();
                 pair._eSym._pair = pair;
                 return pair;
             }
@@ -350,7 +336,7 @@ namespace Prowl.Quill.External
         public static void MakeVertex(Edge eOrig, Vertex vNext)
         {
             var vNew = MeshUtils.Vertex.Create();
-            vNew.Free();
+            // vNew.Free();
 
             // insert in circular doubly-linked list before vNext
             var vPrev = vNext._prev;
@@ -380,7 +366,7 @@ namespace Prowl.Quill.External
         public static void MakeFace(Edge eOrig, Face fNext)
         {
             var fNew = MeshUtils.Face.Create();
-            fNew.Free();
+            // fNew.Free();
 
             // insert in circular doubly-linked list before fNext
             var fPrev = fNext._prev;

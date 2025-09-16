@@ -83,12 +83,26 @@ namespace LibTessDotNet
 
         public override void Reset()
         {
+            for (MeshUtils.Face face = _fHead._next, fNext = _fHead; face != _fHead; face = fNext)
+            {
+                face.Free();
+                fNext = face._next;
+            }
+            for (MeshUtils.Vertex vertex = _vHead._next, vNext = _vHead; vertex != _vHead; vertex = vNext)
+            {
+                vertex.Free();
+                vNext = vertex._next;
+            }
+            for (MeshUtils.Edge edge = _eHead._next, eNext = _eHead; edge != _eHead; edge = eNext)
+            {
+                edge.Free();
+                eNext = edge._next;
+            }
+            
             var v = _vHead = MeshUtils.Vertex.Create();
-            v.Free();
             var f = _fHead = MeshUtils.Face.Create();
-            f.Free();
-
             var pair = MeshUtils.EdgePair.Create();
+            
             var e = _eHead = pair._e;
             var eSym = _eHeadSym = pair._eSym;
 
@@ -122,21 +136,7 @@ namespace LibTessDotNet
 
         public override void OnFree()
         {
-            for (MeshUtils.Face f = _fHead._next, fNext = _fHead; f != _fHead; f = fNext)
-            {
-                fNext = f._next;
-                f.Free();
-            }
-            for (MeshUtils.Vertex v = _vHead._next, vNext = _vHead; v != _vHead; v = vNext)
-            {
-                vNext = v._next;
-                v.Free();
-            }
-            for (MeshUtils.Edge e = _eHead._next, eNext = _eHead; e != _eHead; e = eNext)
-            {
-                eNext = e._next;
-                e.Free();
-            }
+
         }
 
         /// <summary>

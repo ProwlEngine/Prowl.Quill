@@ -182,15 +182,11 @@ namespace Prowl.Quill
                 Points = points;
                 IsClosed = isClosed;
             }
-            public override void OnFree()
+            
+            public override void Reset()
             {
                 Points.Clear();
                 IsClosed = false;
-            }
-
-            public override void Reset()
-            {
-                // throw new NotImplementedException();
             }
         }
 
