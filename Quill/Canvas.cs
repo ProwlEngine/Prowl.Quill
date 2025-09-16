@@ -1073,7 +1073,7 @@ namespace Prowl.Quill
                 }
                 // List<Vector2> points = copy.Select(v => new ContourVertex() { Position = new Vec3() { X = v.x, Y = v.y } }).ToArray();
 
-                tess.AddContour(points, tess.VertexCount, ContourOrientation.Original);
+                tess.AddContour(points, length, ContourOrientation.Original);
                 ArrayPool<ContourVertex>.Shared.Return(points, true);
                 ArrayPool<Vector2>.Shared.Return(copy);
             }
