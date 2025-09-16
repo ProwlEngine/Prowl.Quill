@@ -47,7 +47,6 @@ namespace LibTessDotNet
 
         public Mesh()
         {
-            _allowReset = true;
             var v = _vHead = MeshUtils.Vertex.Create();
             var f = _fHead = MeshUtils.Face.Create();
 
@@ -127,16 +126,25 @@ namespace LibTessDotNet
                 fNext = f._next;
                 f.Free();
             }
+            _fHead.Free();
             for (MeshUtils.Vertex v = _vHead._next, vNext = _vHead; v != _vHead; v = vNext)
             {
                 vNext = v._next;
                 v.Free();
             }
+            _vHead.Free();
             for (MeshUtils.Edge e = _eHead._next, eNext = _eHead; e != _eHead; e = eNext)
             {
                 eNext = e._next;
                 e.Free();
             }
+            for (MeshUtils.Edge e = _eHeadSym._next, eNext = _eHeadSym; e != _eHeadSym; e = eNext)
+            {
+                eNext = e._next;
+                e.Free();
+            }
+            _eHeadSym.Free();
+            _eHead.Free();
         }
 
         /// <summary>
