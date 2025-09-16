@@ -114,16 +114,17 @@ namespace Prowl.Quill.External
 
         public abstract class Pooled<T> where T : Pooled<T>, new()
         {
-            private static Stack<T> _stack;
+            private static Stack<T> _stack = new Stack<T>();
 
             public abstract void Reset();
             public virtual void OnFree() {}
 
             public static T Create()
             {
-                if (_stack != null && _stack.Count > 0)
+                if (_stack.TryPop(out T obj))
                 {
-                    return _stack.Pop();
+                    Debug.Assert(obj != null);
+                    return obj;
                 }
                 return new T();
             }
@@ -132,10 +133,6 @@ namespace Prowl.Quill.External
             {
                 OnFree();
                 Reset();
-                if (_stack == null)
-                {
-                    _stack = new Stack<T>();
-                }
                 _stack.Push((T)this);
             }
         }
