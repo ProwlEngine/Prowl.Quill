@@ -557,7 +557,7 @@ namespace LibTessDotNet
 
             // At this point the edges intersect, at least marginally
 
-            var isect = MeshUtils.Vertex.Create();
+            var isect = MemoryArena.Get<MeshUtils.Vertex>();
             Geom.EdgeIntersect(dstUp, orgUp, dstLo, orgLo, isect);
             // The following properties are guaranteed:
             Debug.Assert(Math.Min(orgUp._t, dstUp._t) <= isect._t);
@@ -642,6 +642,8 @@ namespace LibTessDotNet
                     eLo._Org._s = _event._s;
                     eLo._Org._t = _event._t;
                 }
+                
+                // isect.Free();
                 // leave the rest for ConnectRightVertex
                 return false;
             }

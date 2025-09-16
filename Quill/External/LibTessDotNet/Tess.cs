@@ -645,7 +645,7 @@ namespace Prowl.Quill.External
         {
             if (_mesh == null)
             {
-                _mesh = Mesh.Create();
+                _mesh = MemoryArena.Get<Mesh>();
             }
 
             bool reverse = false;
@@ -740,7 +740,7 @@ namespace Prowl.Quill.External
 
             // if (UsePooling)
             // {
-            _mesh.Free();
+            // _mesh.Free();
             // }
             _mesh = null;
         }

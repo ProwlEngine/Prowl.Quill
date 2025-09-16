@@ -210,6 +210,8 @@ namespace Prowl.Quill
 
         private IMarkdownImageProvider? _markdownImageProvider = null;
 
+        private Type[] _meshTypes = {typeof(MeshUtils.Vertex),  typeof(MeshUtils.Edge), typeof(MeshUtils.Face), typeof(Mesh)};
+
         public double DevicePixelRatio
         {
             get => _devicePixelRatio;
@@ -232,6 +234,12 @@ namespace Prowl.Quill
 
             _renderer = renderer;
             _scribeRenderer = new TextRenderer(this, fontAtlasSettings);
+            
+            MemoryArena.AddType<MeshUtils.Vertex>(1024);
+            MemoryArena.AddType<MeshUtils.Edge>(2048);
+            MemoryArena.AddType<MeshUtils.Face>(1024);
+            MemoryArena.AddType<Mesh>(8);
+            
             Clear();
         }
 
@@ -271,7 +279,15 @@ namespace Prowl.Quill
 
         public void SaveState() => _savedStates.Push(_state);
         public void RestoreState() => _state = _savedStates.Pop();
-        public void ResetState() => _state.Reset();
+        public void ResetState()
+        { 
+            // Mesh.ResetCounters();
+            // MeshUtils.Vertex.ResetCounters();
+            // MeshUtils.Face.ResetCounters();
+            // MeshUtils.Edge.ResetCounters();
+            MemoryArena.FreeTypes(_meshTypes);
+            _state.Reset();
+        }
 
         public void SetStrokeColor(Color color) => _state.strokeColor = color;
         public void SetStrokeJoint(JointStyle joint) => _state.strokeJoint = joint;
