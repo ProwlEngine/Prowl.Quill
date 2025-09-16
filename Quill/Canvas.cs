@@ -210,7 +210,7 @@ namespace Prowl.Quill
 
         private IMarkdownImageProvider? _markdownImageProvider = null;
 
-        private Type[] _meshTypes = {typeof(MeshUtils.Vertex),  typeof(MeshUtils.Edge), typeof(MeshUtils.Face), typeof(Mesh)};
+        private Type[] _meshTypes = {typeof(MeshUtils.Vertex),  typeof(MeshUtils.Edge), typeof(MeshUtils.Face), typeof(Mesh), typeof(Dict<Tess.ActiveRegion>.Node)};
 
         public double DevicePixelRatio
         {
@@ -239,6 +239,7 @@ namespace Prowl.Quill
             MemoryArena.AddType<MeshUtils.Edge>(2048);
             MemoryArena.AddType<MeshUtils.Face>(1024);
             MemoryArena.AddType<Mesh>(8);
+            MemoryArena.AddType<Dict<Tess.ActiveRegion>.Node>(1024);
             
             Clear();
         }

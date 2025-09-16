@@ -1040,8 +1040,11 @@ namespace LibTessDotNet
         /// This order is maintained in a dynamic dictionary.
         /// </summary>
         private void InitEdgeDict()
-        {
-            _dict = new Dict<ActiveRegion>(EdgeLeq);
+        { 
+            if(_dict == null)
+                _dict = new Dict<ActiveRegion>(EdgeLeq);
+            else
+                _dict.Reset();
 
             AddSentinel(-SentinelCoord, SentinelCoord, -SentinelCoord);
             AddSentinel(-SentinelCoord, SentinelCoord, +SentinelCoord);
