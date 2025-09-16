@@ -212,7 +212,7 @@ namespace Prowl.Quill
         
         private Tess _tess = new Tess();
 
-        private Type[] _meshTypes = {typeof(MeshUtils.Vertex),  typeof(MeshUtils.Edge), typeof(MeshUtils.Face), typeof(Mesh), typeof(Dict<Tess.ActiveRegion>.Node)};
+        private Type[] _meshTypes = {typeof(MeshUtils.Vertex),  typeof(MeshUtils.Edge), typeof(MeshUtils.Face), typeof(Mesh), typeof(Dict<Tess.ActiveRegion>.Node), typeof(Tess.ActiveRegion)};
 
         public double DevicePixelRatio
         {
@@ -242,6 +242,7 @@ namespace Prowl.Quill
             MemoryArena.AddType<MeshUtils.Face>(1024);
             MemoryArena.AddType<Mesh>(8);
             MemoryArena.AddType<Dict<Tess.ActiveRegion>.Node>(1024);
+            MemoryArena.AddType<Tess.ActiveRegion>(1024);
             
             Clear();
         }

@@ -42,12 +42,21 @@ namespace LibTessDotNet
 {
     internal partial class Tess
     {
-        internal class ActiveRegion
+        internal class ActiveRegion : Poolable
         {
             internal MeshUtils.Edge _eUp;
             internal Dict<ActiveRegion>.Node _nodeUp;
             internal int _windingNumber;
             internal bool _inside, _sentinel, _dirty, _fixUpperEdge;
+            public override void Reset()
+            {
+                _nodeUp = null;
+                _windingNumber = 0;
+                _inside = false;
+                _sentinel = false;
+                _dirty = false;
+                _fixUpperEdge = false;
+            }
         }
 
         private ActiveRegion RegionBelow(ActiveRegion reg)
