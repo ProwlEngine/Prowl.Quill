@@ -32,8 +32,10 @@
 */
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Reflection.Metadata.Ecma335;
 
 namespace Prowl.Quill.External
 {
@@ -62,11 +64,43 @@ namespace LibTessDotNet
             _size = 0;
             _max = initialSize;
             _initialized = false;
+            
+            MemoryArena.AddType<StackItem>();
         }
 
-        class StackItem
+        public void Reset(int initialSize, PriorityHeap<TValue>.LessOrEqual leq)
+        {
+            _leq = leq;
+
+            //TODO reset the heap here so it works better
+            _heap = new PriorityHeap<TValue>(initialSize, leq);
+
+            // ArrayPool<TValue>.Shared.Return(_keys, true);
+            if(_keys != null) ArrayPool<TValue>.Shared.Return(_keys);
+                
+            _keys = ArrayPool<TValue>.Shared.Rent(initialSize);
+
+            _size = 0;
+            _max = initialSize;
+            _initialized = false;
+            
+            MemoryArena.Free<StackItem>();
+        }
+        
+        class StackItem : Poolable
         {
             internal int p, r;
+            public override void Reset()
+            {
+                p = 0;
+                r = 0;
+            }
+
+            public void SetData(int pVal, int rVal)
+            {
+                p = pVal;
+                r = rVal;
+            }
         };
 
         static void Swap(ref int a, ref int b)
@@ -75,22 +109,30 @@ namespace LibTessDotNet
             a = b;
             b = tmp;
         }
-
+        private Stack<StackItem> _stack = new Stack<StackItem>();
         public void Init()
         {
-            var stack = new Stack<StackItem>();
+            var stack = _stack;
+            stack.Clear();
             int p, r, i, j, piv;
             uint seed = 2016473283;
 
             p = 0;
             r = _size - 1;
-            _order = new int[_size + 1];
+            
+            if(_order != null)
+                ArrayPool<int>.Shared.Return(_order);
+            _order = ArrayPool<int>.Shared.Rent(_size + 1);
+            
             for (piv = 0, i = p; i <= r; ++piv, ++i)
             {
                 _order[i] = piv;
             }
 
-            stack.Push(new StackItem { p = p, r = r });
+            // stack.Push(new StackItem { p = p, r = r });
+            var newItem = MemoryArena.Get<StackItem>();
+            newItem.SetData(p, r);
+            stack.Push(newItem);
             while (stack.Count > 0)
             {
                 var top = stack.Pop();
@@ -114,12 +156,16 @@ namespace LibTessDotNet
                     Swap(ref _order[i], ref _order[j]);
                     if (i - p < r - j)
                     {
-                        stack.Push(new StackItem { p = j + 1, r = r });
+                        newItem = MemoryArena.Get<StackItem>();
+                        newItem.SetData(j + 1, r);
+                        stack.Push(newItem);
                         r = i - 1;
                     }
                     else
                     {
-                        stack.Push(new StackItem { p = p, r = i - 1 });
+                        newItem = MemoryArena.Get<StackItem>();
+                        newItem.SetData(p, i - 1);
+                        stack.Push(newItem);
                         p = j + 1;
                     }
                 }

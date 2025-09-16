@@ -1077,8 +1077,6 @@ namespace LibTessDotNet
                 Debug.Assert(reg._windingNumber == 0);
                 DeleteRegion(reg);
             }
-
-            _dict = null;
         }
 
         /// <summary>
@@ -1139,7 +1137,10 @@ namespace LibTessDotNet
             // Make sure there is enough space for sentinels.
             vertexCount += 8;
     
-            _pq = new PriorityQueue<MeshUtils.Vertex>(vertexCount, Geom.VertLeq);
+            if(_pq == null)
+                _pq = new PriorityQueue<MeshUtils.Vertex>(vertexCount, Geom.VertLeq);
+            else
+                _pq.Reset(vertexCount, Geom.VertLeq);
 
             vHead = _mesh._vHead;
             for( v = vHead._next; v != vHead; v = v._next ) {
@@ -1150,11 +1151,6 @@ namespace LibTessDotNet
                 }
             }
             _pq.Init();
-        }
-
-        private void DonePriorityQ()
-        {
-            _pq = null;
         }
 
         /// <summary>
@@ -1241,7 +1237,6 @@ namespace LibTessDotNet
             }
 
             DoneEdgeDict();
-            DonePriorityQ();
 
             RemoveDegenerateFaces();
             _mesh.Check();
