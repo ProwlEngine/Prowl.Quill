@@ -164,15 +164,17 @@ namespace Prowl.Quill
 
     public partial class Canvas
     {
-        internal class SubPath
+        internal class SubPath : Poolable
         {
-            internal List<Vector2> Points { get; }
-            internal bool IsClosed { get; }
+            internal List<Vector2> Points { get; set;  }
+            internal bool IsClosed { get; set;  }
 
-            public SubPath(List<Vector2> points, bool isClosed)
+            public override void Reset()
             {
-                Points = points;
-                IsClosed = isClosed;
+                if (Points == null) Points = new List<Vector2>();
+                
+                Points.Clear();
+                IsClosed = false;
             }
         }
 
@@ -212,7 +214,7 @@ namespace Prowl.Quill
         
         private Tess _tess = new Tess();
 
-        private Type[] _meshTypes = {typeof(MeshUtils.Vertex),  typeof(MeshUtils.Edge), typeof(MeshUtils.Face), typeof(Mesh), typeof(Dict<Tess.ActiveRegion>.Node), typeof(Tess.ActiveRegion)};
+        private Type[] _meshTypes = {typeof(MeshUtils.Vertex),  typeof(MeshUtils.Edge), typeof(MeshUtils.Face), typeof(Mesh), typeof(Dict<Tess.ActiveRegion>.Node), typeof(Tess.ActiveRegion), typeof(SubPath)};
 
         public double DevicePixelRatio
         {
@@ -243,6 +245,7 @@ namespace Prowl.Quill
             MemoryArena.AddType<Mesh>(8);
             MemoryArena.AddType<Dict<Tess.ActiveRegion>.Node>(1024);
             MemoryArena.AddType<Tess.ActiveRegion>(1024);
+            MemoryArena.AddType<SubPath>(512);
             
             Clear();
         }
@@ -606,7 +609,7 @@ namespace Prowl.Quill
             if (!_isPathOpen)
                 BeginPath();
 
-            _currentSubPath = new SubPath(new List<Vector2>(), false);
+            _currentSubPath = MemoryArena.Get<SubPath>();
             _currentSubPath.Points.Add(new Vector2(x, y));
             _subPaths.Add(_currentSubPath);
         }

@@ -218,7 +218,7 @@ namespace Prowl.Quill
             data.EndUV2 = new Vector2(endU, 1);
         }
 
-
+        
         private static List<List<Vector2>> GenerateDashSegments(List<Vector2> points, List<double> dashPattern, double dashOffset, Vector2 halfPixelOffset)
         {
             var allDashSegments = new List<List<Vector2>>();
