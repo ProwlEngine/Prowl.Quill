@@ -645,7 +645,7 @@ namespace Prowl.Quill.External
         {
             if (_mesh == null)
             {
-                _mesh = new Mesh();
+                _mesh = Mesh.Create();
             }
 
             bool reverse = false;
@@ -738,10 +738,10 @@ namespace Prowl.Quill.External
                 OutputPolymesh(elementType, polySize);
             }
 
-            if (UsePooling)
-            {
-                _mesh.Free();
-            }
+            // if (UsePooling)
+            // {
+            _mesh.Free();
+            // }
             _mesh = null;
         }
     }

@@ -108,34 +108,47 @@ namespace Prowl.Quill.External
         }
     }
 
+    public abstract class Pooled<T> where T : Pooled<T>, new()
+    {
+        private static Stack<T> _stack = new Stack<T>();
+        protected static int _created = 0;
+        protected static int _returned = 0;
+        protected static bool _allowReset = false;
+        public abstract void Reset();
+        public virtual void OnFree() {}
+
+        public static void ResetCounters()
+        {
+            if (!_allowReset) return;
+            
+            _created = 0;
+            _returned = 0;
+        }
+
+        public static T Create()
+        {
+            if (_stack.TryPop(out T obj))
+            {
+                Debug.Assert(obj != null);
+                return obj;
+            }
+
+            _created++;
+            return new T(); 
+        }
+
+        public void Free()
+        {
+            OnFree();
+            Reset();
+            _stack.Push((T)this);
+            _returned++;
+        }
+    }
+    
     internal static class MeshUtils
     {
         public const int Undef = ~0;
-
-        public abstract class Pooled<T> where T : Pooled<T>, new()
-        {
-            private static Stack<T> _stack = new Stack<T>();
-
-            public abstract void Reset();
-            public virtual void OnFree() {}
-
-            public static T Create()
-            {
-                if (_stack.TryPop(out T obj))
-                {
-                    Debug.Assert(obj != null);
-                    return obj;
-                }
-                return new T();
-            }
-
-            public void Free()
-            {
-                OnFree();
-                Reset();
-                _stack.Push((T)this);
-            }
-        }
 
         public class Vertex : Pooled<Vertex>
         {
