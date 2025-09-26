@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
+using Vector2 = Prowl.Vector.Vector2;
 
 namespace Prowl.Quill
 {
@@ -15,6 +16,8 @@ namespace Prowl.Quill
         private static List<Triangle> _triangles;
         [ThreadStatic]
         private static List<PolySegment> _polySegments;
+        [ThreadStatic]
+        private static Stack<List<Vector2>> _pointsListPool = new Stack<List<Vector2>>();
 
         private static List<Triangle> TriangleCache => _triangles ??= new List<Triangle>();
         private static List<PolySegment> PolySegmentCache => _polySegments ??= new List<PolySegment>();
@@ -68,7 +71,14 @@ namespace Prowl.Quill
 
             var dashSegments = GenerateDashSegments(points, dashPattern, dashOffset, HalfPixel);
             if (dashSegments.Count == 0)
+            {
+                foreach (List<Vector2> list in dashSegments)
+                {
+                    ReturnVector2PointList(list);
+                }
+
                 return CollectionsMarshal.AsSpan(TriangleCache);
+            }
 
             foreach (var dashPoints in dashSegments)
             {
@@ -85,6 +95,11 @@ namespace Prowl.Quill
                                            color, isClosedPolyline);
             }
 
+            foreach (List<Vector2> list in dashSegments)
+            {
+                ReturnVector2PointList(list);
+            }
+            
             return CollectionsMarshal.AsSpan(TriangleCache);
         }
 
@@ -218,33 +233,51 @@ namespace Prowl.Quill
             data.EndUV2 = new Vector2(endU, 1);
         }
 
-        
+        private static List<List<Vector2>> _currentDashPoints = new List<List<Vector2>>();
+        private static int _currentDashPointIdx = 0;
         private static List<List<Vector2>> GenerateDashSegments(List<Vector2> points, List<double> dashPattern, double dashOffset, Vector2 halfPixelOffset)
         {
-            var allDashSegments = new List<List<Vector2>>();
+            var allDashSegments = _currentDashPoints;
+            allDashSegments.Clear();
+            _currentDashPointIdx = 0;
 
             if (points.Count < 2 || dashPattern == null || dashPattern.Count == 0 || dashPattern.Sum() <= Epsilon)
             {
                 if (points.Count >= 2)
                 {
-                    var singleSegment = points.Select(p => p + halfPixelOffset).ToList();
-                    allDashSegments.Add(singleSegment);
+                    for(int i = 0; i < points.Count; i++)
+                    {
+                        points[i] += halfPixelOffset;
+                    }
+                    allDashSegments.Add(points);
                 }
                 return allDashSegments;
             }
 
             var dashState = InitializeDashState(dashPattern, dashOffset);
-            var currentDashPoints = new List<Vector2>();
+
+            if (_currentDashPointIdx >= _currentDashPoints.Count)
+            {
+                _currentDashPoints.Add(GetVector2PointList());
+            }
+            var currentDashPoints = _currentDashPoints[_currentDashPointIdx];
+            _currentDashPointIdx++;
+            currentDashPoints.Clear();
 
             ProcessLineSegments(points, halfPixelOffset, dashPattern, dashState, currentDashPoints, allDashSegments);
 
             // Add final dash segment if we're in dash state
             if (dashState.IsInDash && currentDashPoints.Count >= 2)
             {
-                allDashSegments.Add(new List<Vector2>(currentDashPoints));
+                var list = GetVector2PointList();
+                foreach (Vector2 vec in currentDashPoints)
+                {
+                    list.Add(vec);
+                }
+                allDashSegments.Add(list);
             }
 
-            allDashSegments.RemoveAll(dash => dash.Count < 2);
+            // allDashSegments.RemoveAll(dash => dash.Count < 2);
             return allDashSegments;
         }
 
@@ -294,7 +327,7 @@ namespace Prowl.Quill
             return state;
         }
 
-        private static void ProcessLineSegments(List<Vector2> points, Vector2 halfPixelOffset, List<double> dashPattern, DashState dashState, List<Vector2> currentDashPoints, List<List<Vector2>> allDashSegments)
+        private static bool ProcessLineSegments(List<Vector2> points, Vector2 halfPixelOffset, List<double> dashPattern, DashState dashState, List<Vector2> currentDashPoints, List<List<Vector2>> allDashSegments)
         {
             for (int i = 0; i < points.Count - 1; i++)
             {
@@ -314,6 +347,8 @@ namespace Prowl.Quill
                 ProcessSingleSegment(p1, segmentDirection, segmentLength, halfPixelOffset, dashPattern,
                                    ref dashState, ref distanceTraversed, currentDashPoints, allDashSegments);
             }
+
+            return points.Count >= 2;
         }
 
         private static void ProcessSingleSegment(Vector2 segmentStart, Vector2 segmentDirection, double segmentLength, Vector2 halfPixelOffset, List<double> dashPattern, ref DashState dashState, ref double distanceTraversed, List<Vector2> currentDashPoints, List<List<Vector2>> allDashSegments)
@@ -393,7 +428,12 @@ namespace Prowl.Quill
                 // End of dash - save current segment
                 if (currentDashPoints.Count >= 2)
                 {
-                    allDashSegments.Add(new List<Vector2>(currentDashPoints));
+                    var list = GetVector2PointList();
+                    foreach (Vector2 vec in currentDashPoints)
+                    {
+                        list.Add(vec);
+                    }
+                    allDashSegments.Add(list);
                 }
                 currentDashPoints.Clear();
             }
@@ -754,6 +794,22 @@ namespace Prowl.Quill
             double dot = Dot(a, b);
             double cosAngle = dot / Math.Sqrt(magASq * magBSq);
             return Math.Acos(Math.Max(-1.0, Math.Min(1.0, cosAngle)));
+        }
+
+        private static List<Vector2> GetVector2PointList()
+        {
+            if (!_pointsListPool.TryPop(out List<Vector2> list))
+            {
+                list = new List<Vector2>();
+            }
+            
+            list.Clear();
+            return list;
+        }
+
+        private static void ReturnVector2PointList(List<Vector2> list)
+        {
+            _pointsListPool.Push(list);
         }
     }
 }
