@@ -215,6 +215,8 @@ namespace Prowl.Quill
         private Tess _tess = new Tess();
 
         private Type[] _meshTypes = {typeof(MeshUtils.Vertex),  typeof(MeshUtils.Edge), typeof(MeshUtils.Face), typeof(Mesh), typeof(Dict<Tess.ActiveRegion>.Node), typeof(Tess.ActiveRegion), typeof(SubPath)};
+        
+        private List<Vector2> _roundedRectFilledPointList = new List<Vector2>();
 
         public double DevicePixelRatio
         {
@@ -1514,7 +1516,7 @@ namespace Prowl.Quill
         {
             RoundedRectFilled(x, y, width, height, radius, radius, radius, radius, color);
         }
-
+        
         /// <summary>
         /// Paints a Hardware-accelerated rounded rectangle on the canvas.
         /// This does not modify or use the current path.
@@ -1564,7 +1566,8 @@ namespace Prowl.Quill
             // Add center vertex with UV at 0.5,0.5 (no AA)
             AddVertex(new Vertex(center, new Vector2(0.5f, 0.5f), color));
 
-            List<Vector2> points = new List<Vector2>();
+            List<Vector2> points = _roundedRectFilledPointList;
+            points.Clear();
 
             // Top-left corner
             if (tlRadii > 0)
