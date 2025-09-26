@@ -73,7 +73,10 @@ namespace LibTessDotNet
             _leq = leq;
 
             //TODO reset the heap here so it works better
-            _heap = new PriorityHeap<TValue>(initialSize, leq);
+            if(_heap != null)
+                _heap.Reset(initialSize, leq);
+            else
+                _heap = new PriorityHeap<TValue>(initialSize, leq);
 
             // ArrayPool<TValue>.Shared.Return(_keys, true);
             if(_keys != null) ArrayPool<TValue>.Shared.Return(_keys);
