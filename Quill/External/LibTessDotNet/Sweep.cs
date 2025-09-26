@@ -176,7 +176,7 @@ namespace LibTessDotNet
         /// </summary>
         private ActiveRegion AddRegionBelow(ActiveRegion regAbove, MeshUtils.Edge eNewUp)
         {
-            var regNew = new ActiveRegion();
+            var regNew = MemoryArena.Get<ActiveRegion>();
 
             regNew._eUp = eNewUp;
             regNew._nodeUp = _dict.InsertBefore(regAbove._nodeUp, regNew);
@@ -915,7 +915,7 @@ namespace LibTessDotNet
         /// </summary>
         private void ConnectLeftVertex(MeshUtils.Vertex vEvent)
         {
-            var tmp = new ActiveRegion();
+            var tmp = MemoryArena.Get<ActiveRegion>();
 
             // Get a pointer to the active region containing vEvent
             tmp._eUp = vEvent._anEdge._Sym;
@@ -1034,7 +1034,7 @@ namespace LibTessDotNet
             e._Dst._t = t;
             _event = e._Dst; // initialize it
 
-            var reg = new ActiveRegion();
+            var reg = MemoryArena.Get<ActiveRegion>();
             reg._eUp = e;
             reg._windingNumber = 0;
             reg._inside = false;
