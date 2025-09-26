@@ -1,5 +1,6 @@
 ﻿using Prowl.Vector;
 using System;
+using System.Buffers;
 using System.Drawing;
 
 namespace Prowl.Quill
@@ -86,7 +87,7 @@ namespace Prowl.Quill
             canvas.BeginPath();
             var lastControlPoint = Vector2.zero;
 
-            for (var i = 0; i < element.drawCommands.Length; i++)
+            for (var i = 0; i < element.drawCommandCount; i++)
             {
                 var cmd = element.drawCommands[i];
                 var currentPoint = i == 0 ? position : canvas.CurrentPoint;
@@ -134,6 +135,8 @@ namespace Prowl.Quill
                         break;
                 }
             }
+            
+            ArrayPool<DrawCommand>.Shared.Return(element.drawCommands);
         }
 
         static Vector2 ReflectPoint(Vector2 mirrorPoint, Vector2 inputPoint)

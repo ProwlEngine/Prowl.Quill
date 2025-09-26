@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Xml;
 using System.IO;
@@ -17,6 +18,7 @@ namespace Prowl.Quill
         public Dictionary<string, string> Attributes { get; }
         public List<SvgElement> Children { get; }
         public DrawCommand[] drawCommands;
+        public int drawCommandCount = 0;
 
         public Color stroke;
         public Color fill;
@@ -237,7 +239,8 @@ namespace Prowl.Quill
                 throw new InvalidDataException();
 
             var matches = Regex.Matches(pathData, @"([A-Za-z])([-0-9.,\s]*)");
-            drawCommands = new DrawCommand[matches.Count];
+            // drawCommands = new DrawCommand[matches.Count];
+            drawCommands = ArrayPool<DrawCommand>.Shared.Rent(matches.Count);
             for (int i = 0; i < matches.Count; i++)
             {
                 var match = matches[i];
@@ -276,6 +279,7 @@ namespace Prowl.Quill
                 }
                 //Console.WriteLine(drawCommand.ToString());
                 drawCommands[i] = drawCommand;
+                drawCommandCount++;
                 //if (!ValidateParameterCount(drawCommand))
                 //{
                 //    Console.WriteLine(pathData);
