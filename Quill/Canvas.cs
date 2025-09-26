@@ -288,10 +288,6 @@ namespace Prowl.Quill
         public void RestoreState() => _state = _savedStates.Pop();
         public void ResetState()
         { 
-            // Mesh.ResetCounters();
-            // MeshUtils.Vertex.ResetCounters();
-            // MeshUtils.Face.ResetCounters();
-            // MeshUtils.Edge.ResetCounters();
             MemoryArena.FreeTypes(_meshTypes);
             _state.Reset();
         }

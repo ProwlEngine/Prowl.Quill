@@ -86,7 +86,8 @@ namespace LibTessDotNet
                 node = node._prev;
             } while (node._key != null && !_leq(node._key, key));
 
-            var newNode = new Node { _key = key };
+            var newNode = MemoryArena.Get<Node>();
+            newNode._key = key;
             newNode._next = node._next;
             node._next._prev = newNode;
             newNode._prev = node;
