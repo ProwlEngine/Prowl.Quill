@@ -1,24 +1,28 @@
 ﻿using Prowl.Vector;
 using System;
 using System.Buffers;
+using System.Collections.Generic;
 using System.Drawing;
 
 namespace Prowl.Quill
 {
     public static class SVGRenderer
     {
+        private static List<SvgElement> _elementsToDraw = new List<SvgElement>();
+        
         public static Color currentColor = Color.White;
-
+        
         //for debug
         public static bool debug;
 
         public static void DrawToCanvas(Canvas canvas, Vector2 position, SvgElement svgElement)
         {
-            var elements = svgElement.Flatten();
+            _elementsToDraw.Clear();
+            _elementsToDraw = svgElement.Flatten();
 
-            for (var i = 0; i < elements.Count; i++)
+            for (var i = 0; i < _elementsToDraw.Count; i++)
             {
-                var element = elements[i];
+                var element = _elementsToDraw[i];
 
                 SetState(canvas, element);
 
