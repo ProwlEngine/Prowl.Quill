@@ -138,6 +138,9 @@ namespace Prowl.Quill
                         canvas.ClosePath();
                         break;
                 }
+                
+                if(cmd.param != null)
+                    ArrayPool<double>.Shared.Return(cmd.param);
             }
             
             ArrayPool<DrawCommand>.Shared.Return(element.drawCommands);
