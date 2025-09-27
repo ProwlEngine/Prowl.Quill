@@ -57,7 +57,13 @@ namespace Prowl.Quill
             TriangleCache.Clear();
 
             if (points.Count < 2 || thickness <= 0 || color.A == 0)
+            { 
+#if NET5_0_OR_GREATER
                 return CollectionsMarshal.AsSpan(TriangleCache);
+#else
+                return TriangleCache.ToArray();
+#endif                
+            }
 
             // Handle thin lines with alpha adjustment instead of thickness reduction
             if (thickness < 1.0)
@@ -77,7 +83,11 @@ namespace Prowl.Quill
                     ReturnVector2PointList(list);
                 }
 
+#if NET5_0_OR_GREATER
                 return CollectionsMarshal.AsSpan(TriangleCache);
+#else
+                return TriangleCache.ToArray();
+#endif     
             }
 
             foreach (var dashPoints in dashSegments)
@@ -100,7 +110,11 @@ namespace Prowl.Quill
                 ReturnVector2PointList(list);
             }
             
+#if NET5_0_OR_GREATER
             return CollectionsMarshal.AsSpan(TriangleCache);
+#else
+            return TriangleCache.ToArray();
+#endif     
         }
 
         private static void CreatePolySegments(List<Vector2> points, double halfThickness)
