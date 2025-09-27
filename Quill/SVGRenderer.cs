@@ -1,23 +1,28 @@
 ﻿using Prowl.Vector;
 using System;
+using System.Buffers;
+using System.Collections.Generic;
 using System.Drawing;
 
 namespace Prowl.Quill
 {
     public static class SVGRenderer
     {
+        private static List<SvgElement> _elementsToDraw = new List<SvgElement>();
+        
         public static Color currentColor = Color.White;
-
+        
         //for debug
         public static bool debug;
 
         public static void DrawToCanvas(Canvas canvas, Vector2 position, SvgElement svgElement)
         {
-            var elements = svgElement.Flatten();
+            _elementsToDraw.Clear();
+            _elementsToDraw = svgElement.Flatten();
 
-            for (var i = 0; i < elements.Count; i++)
+            for (var i = 0; i < _elementsToDraw.Count; i++)
             {
-                var element = elements[i];
+                var element = _elementsToDraw[i];
 
                 SetState(canvas, element);
 
@@ -86,7 +91,7 @@ namespace Prowl.Quill
             canvas.BeginPath();
             var lastControlPoint = Vector2.zero;
 
-            for (var i = 0; i < element.drawCommands.Length; i++)
+            for (var i = 0; i < element.drawCommandCount; i++)
             {
                 var cmd = element.drawCommands[i];
                 var currentPoint = i == 0 ? position : canvas.CurrentPoint;
@@ -133,7 +138,12 @@ namespace Prowl.Quill
                         canvas.ClosePath();
                         break;
                 }
+                
+                if(cmd.param != null)
+                    ArrayPool<double>.Shared.Return(cmd.param);
             }
+            
+            ArrayPool<DrawCommand>.Shared.Return(element.drawCommands);
         }
 
         static Vector2 ReflectPoint(Vector2 mirrorPoint, Vector2 inputPoint)

@@ -108,39 +108,49 @@ namespace Prowl.Quill.External
         }
     }
 
+    public abstract class Pooled<T> where T : Pooled<T>, new()
+    {
+        private static Stack<T> _stack = new Stack<T>();
+        protected static int _created = 0;
+        protected static int _returned = 0;
+        protected static int _count = 0;
+        public abstract void Reset();
+        public virtual void OnFree() {}
+
+        public static void ResetCounters()
+        {
+            _count = 0;
+            _created = 0;
+            _returned = 0;
+        }
+
+        public static T Create()
+        {
+            // if (_stack.TryPop(out T obj))
+            // {
+            //     Debug.Assert(obj != null);
+            //     return obj;
+            // }
+
+            _created++;
+            return new T(); 
+        }
+
+        public void Free()
+        {
+            OnFree();
+            Reset();
+            _stack.Push((T)this);
+            _returned++;
+            _count = _stack.Count;
+        }
+    }
+    
     internal static class MeshUtils
     {
         public const int Undef = ~0;
 
-        public abstract class Pooled<T> where T : Pooled<T>, new()
-        {
-            private static Stack<T> _stack;
-
-            public abstract void Reset();
-            public virtual void OnFree() {}
-
-            public static T Create()
-            {
-                if (_stack != null && _stack.Count > 0)
-                {
-                    return _stack.Pop();
-                }
-                return new T();
-            }
-
-            public void Free()
-            {
-                OnFree();
-                Reset();
-                if (_stack == null)
-                {
-                    _stack = new Stack<T>();
-                }
-                _stack.Push((T)this);
-            }
-        }
-
-        public class Vertex : Pooled<Vertex>
+        public class Vertex : Poolable
         {
             internal Vertex _prev, _next;
             internal Edge _anEdge;
@@ -164,7 +174,7 @@ namespace Prowl.Quill.External
             }
         }
 
-        public class Face : Pooled<Face>
+        public class Face : Poolable
         {
             internal Face _prev, _next;
             internal Edge _anEdge;
@@ -204,10 +214,10 @@ namespace Prowl.Quill.External
 
             public static EdgePair Create()
             {
-                var pair = new MeshUtils.EdgePair();
-                pair._e = MeshUtils.Edge.Create();
+                var pair = new EdgePair();
+                pair._e = MemoryArena.Get<Edge>();
                 pair._e._pair = pair;
-                pair._eSym = MeshUtils.Edge.Create();
+                pair._eSym = MemoryArena.Get<Edge>();
                 pair._eSym._pair = pair;
                 return pair;
             }
@@ -218,7 +228,7 @@ namespace Prowl.Quill.External
             }
         }
 
-        public class Edge : Pooled<Edge>
+        public class Edge : Poolable
         {
             internal EdgePair _pair;
             internal Edge _next, _Sym, _Onext, _Lnext;
@@ -326,7 +336,7 @@ namespace Prowl.Quill.External
         /// </summary>
         public static void MakeVertex(Edge eOrig, Vertex vNext)
         {
-            var vNew = MeshUtils.Vertex.Create();
+            var vNew = MemoryArena.Get<Vertex>();
 
             // insert in circular doubly-linked list before vNext
             var vPrev = vNext._prev;
@@ -355,7 +365,7 @@ namespace Prowl.Quill.External
         /// </summary>
         public static void MakeFace(Edge eOrig, Face fNext)
         {
-            var fNew = MeshUtils.Face.Create();
+            var fNew = MemoryArena.Get<Face>();
 
             // insert in circular doubly-linked list before fNext
             var fPrev = fNext._prev;
@@ -394,8 +404,6 @@ namespace Prowl.Quill.External
             var ePrev = eDel._Sym._next;
             eNext._Sym._next = ePrev;
             ePrev._Sym._next = eNext;
-
-            eDel.Free();
         }
 
         /// <summary>
@@ -418,8 +426,6 @@ namespace Prowl.Quill.External
             var vNext = vDel._next;
             vNext._prev = vPrev;
             vPrev._next = vNext;
-
-            vDel.Free();
         }
 
         /// <summary>
@@ -442,8 +448,6 @@ namespace Prowl.Quill.External
             var fNext = fDel._next;
             fNext._prev = fPrev;
             fPrev._next = fNext;
-
-            fDel.Free();
         }
 
         /// <summary>

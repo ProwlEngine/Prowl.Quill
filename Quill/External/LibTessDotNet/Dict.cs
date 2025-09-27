@@ -38,7 +38,7 @@ namespace LibTessDotNet
 {
     internal class Dict<TValue> where TValue : class
     {
-        public class Node
+        public class Node : Poolable
         {
             internal TValue _key;
             internal Node _prev, _next;
@@ -46,6 +46,11 @@ namespace LibTessDotNet
             public TValue Key { get { return _key; } }
             public Node Prev { get { return _prev; } }
             public Node Next { get { return _next; } }
+            public override void Reset()
+            {
+                // throw new System.NotImplementedException();
+                _key = null;
+            }
         }
 
         public delegate bool LessOrEqual(TValue lhs, TValue rhs);
@@ -62,6 +67,14 @@ namespace LibTessDotNet
             _head._next = _head;
         }
 
+        public void Reset()
+        {
+            var newNode = MemoryArena.Get<Node>();
+            _head = newNode;
+            _head._prev = _head;
+            _head._next = _head;
+        }
+
         public Node Insert(TValue key)
         {
             return InsertBefore(_head, key);
@@ -73,7 +86,8 @@ namespace LibTessDotNet
                 node = node._prev;
             } while (node._key != null && !_leq(node._key, key));
 
-            var newNode = new Node { _key = key };
+            var newNode = MemoryArena.Get<Node>();
+            newNode._key = key;
             newNode._next = node._next;
             node._next._prev = newNode;
             newNode._prev = node;

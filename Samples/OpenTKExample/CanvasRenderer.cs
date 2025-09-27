@@ -295,7 +295,7 @@ void main()
 
             // Upload vertex data
             GL.BindBuffer(BufferTarget.ArrayBuffer, _vertexBufferObject);
-            GL.BufferData(BufferTarget.ArrayBuffer, canvas.Vertices.Count * Vertex.SizeInBytes, canvas.Vertices.ToArray(), BufferUsageHint.StreamDraw);
+            GL.BufferData(BufferTarget.ArrayBuffer, canvas.VertexCount * Vertex.SizeInBytes, canvas.Vertices, BufferUsageHint.StreamDraw);
 
             // Set up vertex attributes
             // Position attribute
@@ -312,7 +312,7 @@ void main()
 
             // Upload index data
             GL.BindBuffer(BufferTarget.ElementArrayBuffer, _elementBufferObject);
-            GL.BufferData(BufferTarget.ElementArrayBuffer, canvas.Indices.Count * sizeof(uint), canvas.Indices.ToArray(), BufferUsageHint.StreamDraw);
+            GL.BufferData(BufferTarget.ElementArrayBuffer, canvas.IndicesCount * sizeof(uint), canvas.Indices, BufferUsageHint.StreamDraw);
 
             // Active texture unit for sampling
             GL.ActiveTexture(TextureUnit.Texture0);

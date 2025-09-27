@@ -32,6 +32,8 @@
 */
 
 using System;
+using System.Buffers;
+using System.Collections.Generic;
 using System.Diagnostics;
 
 namespace Prowl.Quill.External
@@ -53,6 +55,29 @@ namespace LibTessDotNet
         {
             internal TValue _key;
             internal int _node;
+            private static Stack<HandleElem> _pool = new Stack<HandleElem>();
+
+            private void Reset()
+            {
+                _key = null;
+                _node = 0;
+            }
+            
+            public static HandleElem Get()
+            {
+                if (!_pool.TryPop(out HandleElem element))
+                {
+                    element = new HandleElem();
+                }
+
+                return element;
+            }
+
+            public static void Return(HandleElem element)
+            {
+                element.Reset();
+                _pool.Push(element);
+            }
         }
 
         private LessOrEqual _leq;
@@ -68,8 +93,8 @@ namespace LibTessDotNet
         {
             _leq = leq;
 
-            _nodes = new int[initialSize + 1];
-            _handles = new HandleElem[initialSize + 1];
+            _nodes = ArrayPool<int>.Shared.Rent(initialSize + 1);
+            _handles = ArrayPool<HandleElem>.Shared.Rent(initialSize + 1);
 
             _size = 0;
             _max = initialSize;
@@ -77,7 +102,36 @@ namespace LibTessDotNet
             _initialized = false;
 
             _nodes[1] = 1;
-            _handles[1] = new HandleElem { _key = null };
+            _handles[1] = HandleElem.Get();
+        }
+
+        public void Reset(int initialSize, LessOrEqual leq)
+        {
+            _leq = leq;
+            
+            if(_nodes != null) ArrayPool<int>.Shared.Return(_nodes);
+            _nodes = ArrayPool<int>.Shared.Rent(initialSize + 1);
+
+            if(_handles != null)
+            {
+                foreach (HandleElem element in _handles)
+                {
+                    if (element == null) continue;
+                    
+                    HandleElem.Return(element);
+                }
+
+                ArrayPool<HandleElem>.Shared.Return(_handles);
+            }
+            _handles = ArrayPool<HandleElem>.Shared.Rent(initialSize + 1);
+            
+            _size = 0;
+            _max = initialSize;
+            _freeList = 0;
+            _initialized = false;
+            
+            _nodes[1] = 1;
+            _handles[1] = HandleElem.Get();
         }
 
         private void FloatDown(int curr)

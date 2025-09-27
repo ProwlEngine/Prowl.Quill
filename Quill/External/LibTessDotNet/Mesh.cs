@@ -39,7 +39,7 @@ namespace Prowl.Quill.External
 
 namespace LibTessDotNet
 {
-    internal class Mesh : MeshUtils.Pooled<Mesh>
+    internal class Mesh : Poolable
     {
         internal MeshUtils.Vertex _vHead;
         internal MeshUtils.Face _fHead;
@@ -47,8 +47,13 @@ namespace LibTessDotNet
 
         public Mesh()
         {
-            var v = _vHead = MeshUtils.Vertex.Create();
-            var f = _fHead = MeshUtils.Face.Create();
+            Reset();
+        }
+
+        public override void Reset()
+        {
+            var v = _vHead = MemoryArena.Get<MeshUtils.Vertex>();
+            var f = _fHead = MemoryArena.Get<MeshUtils.Face>();
 
             var pair = MeshUtils.EdgePair.Create();
             var e = _eHead = pair._e;
@@ -82,30 +87,32 @@ namespace LibTessDotNet
             eSym._activeRegion = null;
         }
 
-        public override void Reset()
-        {
-            _vHead = null;
-            _fHead = null;
-            _eHead = _eHeadSym = null;
-        }
-
         public override void OnFree()
         {
-            for (MeshUtils.Face f = _fHead._next, fNext = _fHead; f != _fHead; f = fNext)
-            {
-                fNext = f._next;
-                f.Free();
-            }
-            for (MeshUtils.Vertex v = _vHead._next, vNext = _vHead; v != _vHead; v = vNext)
-            {
-                vNext = v._next;
-                v.Free();
-            }
-            for (MeshUtils.Edge e = _eHead._next, eNext = _eHead; e != _eHead; e = eNext)
-            {
-                eNext = e._next;
-                e.Free();
-            }
+            // for (MeshUtils.Face f = _fHead._next, fNext = _fHead; f != _fHead; f = fNext)
+            // {
+            //     fNext = f._next;
+            //     f.Free();
+            // }
+            // _fHead.Free();
+            // for (MeshUtils.Vertex v = _vHead._next, vNext = _vHead; v != _vHead; v = vNext)
+            // {
+            //     vNext = v._next;
+            //     v.Free();
+            // }
+            // _vHead.Free();
+            // for (MeshUtils.Edge e = _eHead._next, eNext = _eHead; e != _eHead; e = eNext)
+            // {
+            //     eNext = e._next;
+            //     e.Free();
+            // }
+            // for (MeshUtils.Edge e = _eHeadSym._next, eNext = _eHeadSym; e != _eHeadSym; e = eNext)
+            // {
+            //     eNext = e._next;
+            //     e.Free();
+            // }
+            // _eHeadSym.Free();
+            // _eHead.Free();
         }
 
         /// <summary>
@@ -391,7 +398,7 @@ namespace LibTessDotNet
             fNext._prev = fPrev;
             fPrev._next = fNext;
 
-            fZap.Free();
+            // fZap.Free();
         }
 
         public void MergeConvexFaces(int maxVertsPerFace)

@@ -32,6 +32,7 @@
 */
 
 using System;
+using System.Buffers;
 using System.Diagnostics;
 
 namespace Prowl.Quill.External
@@ -124,7 +125,17 @@ namespace Prowl.Quill.External
         public int[] Elements { get { return _elements; } }
         public int ElementCount { get { return _elementCount; } }
 
+        Real[] _minVal = new Real[3];
+        Real[] _maxVal = new Real[3];
+        MeshUtils.Vertex[] _minVert = new MeshUtils.Vertex[3];
+        MeshUtils.Vertex[] _maxVert = new MeshUtils.Vertex[3];
+        
         public Tess()
+        {
+            Reset();
+        }
+
+        public void Reset()
         {
             _normal = Vec3.Zero;
             _bminX = _bminY = _bmaxX = _bmaxY = 0;
@@ -132,8 +143,15 @@ namespace Prowl.Quill.External
             _windingRule = WindingRule.EvenOdd;
             _mesh = null;
 
+            if(_vertices != null)
+                ArrayPool<ContourVertex>.Shared.Return(_vertices);
+            
             _vertices = null;
             _vertexCount = 0;
+            
+            if(_elements != null)
+                ArrayPool<int>.Shared.Return(_elements);
+            
             _elements = null;
             _elementCount = 0;
         }
@@ -142,11 +160,27 @@ namespace Prowl.Quill.External
         {
             var v = _mesh._vHead._next;
 
-            var minVal = new Real[3] { v._coords.X, v._coords.Y, v._coords.Z };
-            var minVert = new MeshUtils.Vertex[3] { v, v, v };
-            var maxVal = new Real[3] { v._coords.X, v._coords.Y, v._coords.Z };
-            var maxVert = new MeshUtils.Vertex[3] { v, v, v };
+            var minVal = _minVal;
+            var maxVal = _maxVal;
+            var minVert = _minVert;
+            var maxVert = _maxVert;
 
+            minVal[0] = v._coords.X;
+            minVal[1] = v._coords.Y;
+            minVal[2] = v._coords.Z;
+            
+            maxVal[0] = v._coords.X;
+            maxVal[1] = v._coords.Y;
+            maxVal[2] = v._coords.Z;
+
+            minVert[0] = v;
+            minVert[1] = v;
+            minVert[2] = v;
+            
+            maxVert[0] = v;
+            maxVert[1] = v;
+            maxVert[2] = v;
+            
             for (; v != _mesh._vHead; v = v._next)
             {
                 if (v._coords.X < minVal[0]) { minVal[0] = v._coords.X; minVert[0] = v; }
@@ -502,10 +536,11 @@ namespace Prowl.Quill.External
             _elementCount = maxFaceCount;
             if (elementType == ElementType.ConnectedPolygons)
                 maxFaceCount *= 2;
-            _elements = new int[maxFaceCount * polySize];
-
+            
+            _elementCount = maxFaceCount * polySize;
+            _elements = ArrayPool<int>.Shared.Rent(_elementCount);
             _vertexCount = maxVertexCount;
-            _vertices = new ContourVertex[_vertexCount];
+            _vertices = ArrayPool<ContourVertex>.Shared.Rent(_vertexCount);
 
             // Output vertices.
             for (v = _mesh._vHead._next; v != _mesh._vHead; v = v._next)
@@ -591,8 +626,9 @@ namespace Prowl.Quill.External
                 ++_elementCount;
             }
 
-            _elements = new int[_elementCount * 2];
-            _vertices = new ContourVertex[_vertexCount];
+            _elementCount *= 2;
+            _elements = ArrayPool<int>.Shared.Rent(_elementCount);
+            _vertices = ArrayPool<ContourVertex>.Shared.Rent(_vertexCount);
 
             int vertIndex = 0;
             int elementIndex = 0;
@@ -636,16 +672,16 @@ namespace Prowl.Quill.External
             return 0.5f * area;
         }
 
-        public void AddContour(ContourVertex[] vertices)
+        public void AddContour(ContourVertex[] vertices, int vertexCount)
         {
-            AddContour(vertices, ContourOrientation.Original);
+            AddContour(vertices, vertexCount, ContourOrientation.Original);
         }
 
-        public void AddContour(ContourVertex[] vertices, ContourOrientation forceOrientation)
+        public void AddContour(ContourVertex[] vertices, int vertexCount, ContourOrientation forceOrientation)
         {
             if (_mesh == null)
             {
-                _mesh = new Mesh();
+                _mesh = MemoryArena.Get<Mesh>();
             }
 
             bool reverse = false;
@@ -656,7 +692,7 @@ namespace Prowl.Quill.External
             }
 
             MeshUtils.Edge e = null;
-            for (int i = 0; i < vertices.Length; ++i)
+            for (int i = 0; i < vertexCount; ++i)
             {
                 if (e == null)
                 {
@@ -738,10 +774,10 @@ namespace Prowl.Quill.External
                 OutputPolymesh(elementType, polySize);
             }
 
-            if (UsePooling)
-            {
-                _mesh.Free();
-            }
+            // if (UsePooling)
+            // {
+            // _mesh.Free();
+            // }
             _mesh = null;
         }
     }
