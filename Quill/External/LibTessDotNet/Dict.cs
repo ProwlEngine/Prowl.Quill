@@ -38,7 +38,7 @@ namespace LibTessDotNet
 {
     internal class Dict<TValue> where TValue : class
     {
-        public class Node : MeshUtils.Pooled<Node>
+        public class Node : Poolable
         {
             internal TValue _key;
             internal Node _prev, _next;
@@ -48,9 +48,8 @@ namespace LibTessDotNet
             public Node Next { get { return _next; } }
             public override void Reset()
             {
+                // throw new System.NotImplementedException();
                 _key = null;
-                _prev = null;
-                _next = null;
             }
         }
 
@@ -62,19 +61,15 @@ namespace LibTessDotNet
         public Dict(LessOrEqual leq)
         {
             _leq = leq;
-            // Reset();
+
+            _head = new Node { _key = null };
+            _head._prev = _head;
+            _head._next = _head;
         }
-        
+
         public void Reset()
         {
-            for (Node e = _head._next, next = _head; e != _head; e = next)
-            {
-                e.Free();
-                next = e._next;
-            }
-            
-            var newNode = Node.Create();
-            // newNode.Free();
+            var newNode = MemoryArena.Get<Node>();
             _head = newNode;
             _head._prev = _head;
             _head._next = _head;
@@ -91,8 +86,7 @@ namespace LibTessDotNet
                 node = node._prev;
             } while (node._key != null && !_leq(node._key, key));
 
-            var newNode = Node.Create();
-            newNode.Free();
+            var newNode = MemoryArena.Get<Node>();
             newNode._key = key;
             newNode._next = node._next;
             node._next._prev = newNode;

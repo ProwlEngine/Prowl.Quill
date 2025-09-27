@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Xml;
 using System.IO;
@@ -17,6 +18,7 @@ namespace Prowl.Quill
         public Dictionary<string, string> Attributes { get; }
         public List<SvgElement> Children { get; }
         public DrawCommand[] drawCommands;
+        public int drawCommandCount = 0;
 
         public Color stroke;
         public Color fill;
@@ -225,6 +227,8 @@ namespace Prowl.Quill
 
     public class SvgPathElement : SvgElement
     {
+        private string _parametersString = "";
+        private string _commandSegment = "";
         public override void Parse()
         {
             base.Parse();
@@ -237,14 +241,15 @@ namespace Prowl.Quill
                 throw new InvalidDataException();
 
             var matches = Regex.Matches(pathData, @"([A-Za-z])([-0-9.,\s]*)");
-            drawCommands = new DrawCommand[matches.Count];
+            // drawCommands = new DrawCommand[matches.Count];
+            drawCommands = ArrayPool<DrawCommand>.Shared.Rent(matches.Count);
             for (int i = 0; i < matches.Count; i++)
             {
                 var match = matches[i];
                 var drawCommand = new DrawCommand();
-                var commandSegment = match.Groups[1].Value + match.Groups[2].Value.Trim();
-                var parametersString = commandSegment.Length > 1 ? commandSegment.Substring(1).Trim() : "";
-                var command = commandSegment[0];
+                _commandSegment = match.Groups[1].Value + match.Groups[2].Value.Trim();
+                _parametersString = _commandSegment.Length > 1 ? _commandSegment.Substring(1).Trim() : "";
+                var command = _commandSegment[0];
 
                 drawCommand.relative = char.IsLower(command);
 
@@ -264,18 +269,25 @@ namespace Prowl.Quill
 
                 //Console.WriteLine($"{command} {parametersString}");
 
-                if (!string.IsNullOrEmpty(parametersString))
+                if (!string.IsNullOrEmpty(_parametersString))
                 {
-                    var param = new List<double>();
-                    var matches2 = Regex.Matches(parametersString, @"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?");
+                    var matches2 = Regex.Matches(_parametersString, @"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?");
+                    int totalMatchArraySize = 0;
+                    
                     for (int j = 0; j < matches2.Count; j++)
                         for (int k = 0; k < matches2[j].Groups.Count; k++)
-                            param.Add(double.Parse(matches2[j].Groups[k].ToString(), CultureInfo.InvariantCulture));
+                            totalMatchArraySize++;
+                    
+                    var param = ArrayPool<double>.Shared.Rent(totalMatchArraySize);
+                    for (int j = 0; j < matches2.Count; j++)
+                        for (int k = 0; k < matches2[j].Groups.Count; k++)
+                            param[j + k] = (double.Parse(matches2[j].Groups[k].ToString(), CultureInfo.InvariantCulture));
 
-                    drawCommand.param = param.ToArray();
+                    drawCommand.param = param;
                 }
                 //Console.WriteLine(drawCommand.ToString());
                 drawCommands[i] = drawCommand;
+                drawCommandCount++;
                 //if (!ValidateParameterCount(drawCommand))
                 //{
                 //    Console.WriteLine(pathData);

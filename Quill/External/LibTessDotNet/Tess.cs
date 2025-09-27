@@ -117,7 +117,7 @@ namespace Prowl.Quill.External
         /// <summary>
         /// If true, will use pooling to reduce GC (compare performance with/without, can vary wildly).
         /// </summary>
-        public bool UsePooling = true;
+        public bool UsePooling = false;
 
         public ContourVertex[] Vertices { get { return _vertices; } }
         public int VertexCount { get { return _vertexCount; } }
@@ -125,66 +125,37 @@ namespace Prowl.Quill.External
         public int[] Elements { get { return _elements; } }
         public int ElementCount { get { return _elementCount; } }
 
-        public Tess()
-        {
-            _normal = Vec3.Zero;
-            _bminX = _bminY = _bmaxX = _bmaxY = 0;
-
-            _windingRule = WindingRule.EvenOdd;
-            _mesh = null;
-            
-            if(_vertices != null)
-                ArrayPool<ContourVertex>.Shared.Return(_vertices);
-            
-            _vertices = null;
-            _vertexCount = 0;
-            
-            if(_elements != null)
-                ArrayPool<int>.Shared.Return(_elements);
-            
-            _elements = null;
-            _elementCount = 0;
-        }
-
-        public void ResetTess()
-        {
-            _normal = Vec3.Zero;
-            _bminX = _bminY = _bmaxX = _bmaxY = 0;
-
-            _windingRule = WindingRule.EvenOdd;
-            _mesh = null;
-
-            if(_vertices != null)
-                ArrayPool<ContourVertex>.Shared.Return(_vertices);
-            
-            _vertices = null;
-            _vertexCount = 0;
-            
-            if(_elements != null)
-                ArrayPool<int>.Shared.Return(_elements);
-            
-            _elements = null;
-            _elementCount = 0;
-        }
-
-        /// <summary>
-        /// This clean up function resets all pools so we can reuse the objects. It should be called whenever we clear the canvas
-        /// to ensure that it's ready to render the next frame
-        /// </summary>
-        public static void Cleanup()
-        {
-            Mesh.ResetPool();
-            MeshUtils.Edge.ResetPool();
-            MeshUtils.Vertex.ResetPool();
-            MeshUtils.Face.ResetPool();
-            Dict<ActiveRegion>.Node.ResetPool();
-            ActiveRegion.ResetPool();
-        }
-        
         Real[] _minVal = new Real[3];
         Real[] _maxVal = new Real[3];
         MeshUtils.Vertex[] _minVert = new MeshUtils.Vertex[3];
         MeshUtils.Vertex[] _maxVert = new MeshUtils.Vertex[3];
+        
+        public Tess()
+        {
+            Reset();
+        }
+
+        public void Reset()
+        {
+            _normal = Vec3.Zero;
+            _bminX = _bminY = _bmaxX = _bmaxY = 0;
+
+            _windingRule = WindingRule.EvenOdd;
+            _mesh = null;
+
+            if(_vertices != null)
+                ArrayPool<ContourVertex>.Shared.Return(_vertices);
+            
+            _vertices = null;
+            _vertexCount = 0;
+            
+            if(_elements != null)
+                ArrayPool<int>.Shared.Return(_elements);
+            
+            _elements = null;
+            _elementCount = 0;
+        }
+
         private void ComputeNormal(ref Vec3 norm)
         {
             var v = _mesh._vHead._next;
@@ -193,7 +164,6 @@ namespace Prowl.Quill.External
             var maxVal = _maxVal;
             var minVert = _minVert;
             var maxVert = _maxVert;
-
 
             minVal[0] = v._coords.X;
             minVal[1] = v._coords.Y;
@@ -210,7 +180,7 @@ namespace Prowl.Quill.External
             maxVert[0] = v;
             maxVert[1] = v;
             maxVert[2] = v;
-
+            
             for (; v != _mesh._vHead; v = v._next)
             {
                 if (v._coords.X < minVal[0]) { minVal[0] = v._coords.X; minVert[0] = v; }
@@ -563,14 +533,12 @@ namespace Prowl.Quill.External
                 ++maxFaceCount;
             }
 
-            
             _elementCount = maxFaceCount;
             if (elementType == ElementType.ConnectedPolygons)
                 maxFaceCount *= 2;
             
-            _elements = ArrayPool<int>.Shared.Rent(maxFaceCount * polySize);
             _elementCount = maxFaceCount * polySize;
-            
+            _elements = ArrayPool<int>.Shared.Rent(_elementCount);
             _vertexCount = maxVertexCount;
             _vertices = ArrayPool<ContourVertex>.Shared.Rent(_vertexCount);
 
@@ -657,12 +625,11 @@ namespace Prowl.Quill.External
 
                 ++_elementCount;
             }
-            
-            _elements = ArrayPool<int>.Shared.Rent(_elementCount * 2);
+
             _elementCount *= 2;
-            
+            _elements = ArrayPool<int>.Shared.Rent(_elementCount);
             _vertices = ArrayPool<ContourVertex>.Shared.Rent(_vertexCount);
-            
+
             int vertIndex = 0;
             int elementIndex = 0;
 
@@ -714,8 +681,7 @@ namespace Prowl.Quill.External
         {
             if (_mesh == null)
             {
-                _mesh = Mesh.Create();
-                // _mesh.Free();
+                _mesh = MemoryArena.Get<Mesh>();
             }
 
             bool reverse = false;
@@ -808,10 +774,10 @@ namespace Prowl.Quill.External
                 OutputPolymesh(elementType, polySize);
             }
 
-            if (UsePooling)
-            {
-                _mesh.Free();
-            }
+            // if (UsePooling)
+            // {
+            // _mesh.Free();
+            // }
             _mesh = null;
         }
     }

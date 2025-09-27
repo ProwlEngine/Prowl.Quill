@@ -42,9 +42,8 @@ namespace LibTessDotNet
 {
     internal partial class Tess
     {
-        internal class ActiveRegion : MeshUtils.Pooled<ActiveRegion>
+        internal class ActiveRegion : Poolable
         {
-            public ActiveRegion() {}
             internal MeshUtils.Edge _eUp;
             internal Dict<ActiveRegion>.Node _nodeUp;
             internal int _windingNumber;
@@ -177,8 +176,7 @@ namespace LibTessDotNet
         /// </summary>
         private ActiveRegion AddRegionBelow(ActiveRegion regAbove, MeshUtils.Edge eNewUp)
         {
-            var regNew = ActiveRegion.Create();
-            regNew.Free();
+            var regNew = MemoryArena.Get<ActiveRegion>();
 
             regNew._eUp = eNewUp;
             regNew._nodeUp = _dict.InsertBefore(regAbove._nodeUp, regNew);
@@ -297,10 +295,7 @@ namespace LibTessDotNet
                 eTopLeft = RegionBelow(regUp)._eUp._Rprev;
             }
 
-            ActiveRegion regPrev = regUp;
-            ActiveRegion reg = ActiveRegion.Create();
-            reg.Free();
-            // ActiveRegion regPrev = regUp, reg;
+            ActiveRegion regPrev = regUp, reg;
             var ePrev = eTopLeft;
             while (true)
             {
@@ -571,7 +566,7 @@ namespace LibTessDotNet
 
             // At this point the edges intersect, at least marginally
 
-            var isect = MeshUtils.Vertex.Create();
+            var isect = MemoryArena.Get<MeshUtils.Vertex>();
             Geom.EdgeIntersect(dstUp, orgUp, dstLo, orgLo, isect);
             // The following properties are guaranteed:
             Debug.Assert(Math.Min(orgUp._t, dstUp._t) <= isect._t);
@@ -656,6 +651,8 @@ namespace LibTessDotNet
                     eLo._Org._s = _event._s;
                     eLo._Org._t = _event._t;
                 }
+                
+                // isect.Free();
                 // leave the rest for ConnectRightVertex
                 return false;
             }
@@ -918,8 +915,7 @@ namespace LibTessDotNet
         /// </summary>
         private void ConnectLeftVertex(MeshUtils.Vertex vEvent)
         {
-            var tmp = ActiveRegion.Create();
-            tmp.Reset();
+            var tmp = MemoryArena.Get<ActiveRegion>();
 
             // Get a pointer to the active region containing vEvent
             tmp._eUp = vEvent._anEdge._Sym;
@@ -1038,8 +1034,7 @@ namespace LibTessDotNet
             e._Dst._t = t;
             _event = e._Dst; // initialize it
 
-            var reg = ActiveRegion.Create();
-            reg.Reset();
+            var reg = MemoryArena.Get<ActiveRegion>();
             reg._eUp = e;
             reg._windingNumber = 0;
             reg._inside = false;
@@ -1048,13 +1043,13 @@ namespace LibTessDotNet
             reg._dirty = false;
             reg._nodeUp = _dict.Insert(reg);
         }
-        
+
         /// <summary>
         /// We maintain an ordering of edge intersections with the sweep line.
         /// This order is maintained in a dynamic dictionary.
         /// </summary>
         private void InitEdgeDict()
-        {
+        { 
             if(_dict == null)
                 _dict = new Dict<ActiveRegion>(EdgeLeq);
             else
@@ -1082,8 +1077,6 @@ namespace LibTessDotNet
                 Debug.Assert(reg._windingNumber == 0);
                 DeleteRegion(reg);
             }
-
-            // _dict = null;
         }
 
         /// <summary>
@@ -1143,12 +1136,12 @@ namespace LibTessDotNet
             }
             // Make sure there is enough space for sentinels.
             vertexCount += 8;
-            
+    
             if(_pq == null)
                 _pq = new PriorityQueue<MeshUtils.Vertex>(vertexCount, Geom.VertLeq);
             else
                 _pq.Reset(vertexCount, Geom.VertLeq);
-            
+
             vHead = _mesh._vHead;
             for( v = vHead._next; v != vHead; v = v._next ) {
                 v._pqHandle = _pq.Insert(v);
@@ -1158,11 +1151,6 @@ namespace LibTessDotNet
                 }
             }
             _pq.Init();
-        }
-
-        private void DonePriorityQ()
-        {
-            // _pq = null;
         }
 
         /// <summary>
@@ -1249,7 +1237,6 @@ namespace LibTessDotNet
             }
 
             DoneEdgeDict();
-            DonePriorityQ();
 
             RemoveDegenerateFaces();
             _mesh.Check();

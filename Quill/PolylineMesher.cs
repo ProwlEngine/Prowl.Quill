@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
+using Vector2 = Prowl.Vector.Vector2;
 
 namespace Prowl.Quill
 {
@@ -15,6 +16,8 @@ namespace Prowl.Quill
         private static List<Triangle> _triangles;
         [ThreadStatic]
         private static List<PolySegment> _polySegments;
+        [ThreadStatic]
+        private static List<List<Vector2>> _pointsListPool = new List<List<Vector2>>();
 
         private static List<Triangle> TriangleCache => _triangles ??= new List<Triangle>();
         private static List<PolySegment> PolySegmentCache => _polySegments ??= new List<PolySegment>();
@@ -38,8 +41,8 @@ namespace Prowl.Quill
                 Color = color;
             }
         }
-#if NET5_0_OR_GREATER
- /// <summary>
+
+        /// <summary>
         /// Creates a list of triangles describing a solid path through the input points.
         /// </summary>
         /// <param name="points">The points of the path</param>
@@ -68,7 +71,14 @@ namespace Prowl.Quill
 
             var dashSegments = GenerateDashSegments(points, dashPattern, dashOffset, HalfPixel);
             if (dashSegments.Count == 0)
+            {
+                foreach (List<Vector2> list in dashSegments)
+                {
+                    ReturnVector2PointList(list);
+                }
+
                 return CollectionsMarshal.AsSpan(TriangleCache);
+            }
 
             foreach (var dashPoints in dashSegments)
             {
@@ -85,61 +95,14 @@ namespace Prowl.Quill
                                            color, isClosedPolyline);
             }
 
+            foreach (List<Vector2> list in dashSegments)
+            {
+                ReturnVector2PointList(list);
+            }
+            
             return CollectionsMarshal.AsSpan(TriangleCache);
         }
-#else
-         /// <summary>
-        /// Creates a list of triangles describing a solid path through the input points.
-        /// </summary>
-        /// <param name="points">The points of the path</param>
-        /// <param name="thickness">The path's thickness</param>
-        /// <param name="color">The path's color</param>
-        /// <param name="jointStyle">The path's joint style</param>
-        /// <param name="miterLimit">The miter limit (used when jointStyle is Miter)</param>
-        /// <param name="allowOverlap">Whether to allow overlapping vertices for better results with close points</param>
-        /// <returns>A list of triangles describing the path</returns>
-        public static IReadOnlyList<Triangle> Create(List<Vector2> points, double thickness, double pixelWidth, System.Drawing.Color color, JointStyle jointStyle = JointStyle.Miter, double miterLimit = 4.0, bool allowOverlap = false, EndCapStyle startCap = EndCapStyle.Butt, EndCapStyle endCap = EndCapStyle.Butt, List<double> dashPattern = null, double dashOffset = 0.0)
-        {
-            TriangleCache.Clear();
 
-            if (points.Count < 2 || thickness <= 0 || color.A == 0)
-                return TriangleCache;
-
-            // Handle thin lines with alpha adjustment instead of thickness reduction
-            if (thickness < 1.0)
-            {
-                color = System.Drawing.Color.FromArgb((int)(color.A * thickness), color.R, color.G, color.B);
-                thickness = 1.0;
-            }
-
-            thickness += pixelWidth;
-            double halfThickness = thickness / 2;
-
-            var dashSegments = GenerateDashSegments(points, dashPattern, dashOffset, HalfPixel);
-            if (dashSegments.Count == 0)
-                return TriangleCache;
-
-            foreach (var dashPoints in dashSegments)
-            {
-                if (dashPoints.Count < 2) continue;
-
-                CreatePolySegments(dashPoints, halfThickness);
-                if (PolySegmentCache.Count == 0) continue;
-
-                // Check if this is a closed polyline
-                bool isClosedPolyline = dashPoints.Count > 2 &&
-                                        (dashPoints[0] - dashPoints[^1]).sqrMagnitude < EpsilonSqr;
-
-                GenerateTrianglesForPolyline(jointStyle, miterLimit, allowOverlap, startCap, endCap,
-                    color, isClosedPolyline);
-            }
-
-            return TriangleCache;
-        }
-#endif
-       
-       
-        
         private static void CreatePolySegments(List<Vector2> points, double halfThickness)
         {
             PolySegmentCache.Clear();
@@ -270,57 +233,54 @@ namespace Prowl.Quill
             data.EndUV2 = new Vector2(endU, 1);
         }
 
-        private static List<List<Vector2>> _dashSegments = new List<List<Vector2>>();
+        private static List<List<Vector2>> _currentDashPoints = new List<List<Vector2>>();
+        private static int _currentDashPointIdx = 0;
         private static List<List<Vector2>> GenerateDashSegments(List<Vector2> points, List<double> dashPattern, double dashOffset, Vector2 halfPixelOffset)
         {
-            foreach (List<Vector2> segment in _dashSegments)
-            {
-                ListPool<Vector2>.Return(segment);
-            }
-            ListPool<Vector2>.Free();
-            _dashSegments.Clear();
-            // var allDashSegments = new List<List<Vector2>>();
+            var allDashSegments = _currentDashPoints;
+            allDashSegments.Clear();
+            _currentDashPointIdx = 0;
 
             if (points.Count < 2 || dashPattern == null || dashPattern.Count == 0 || dashPattern.Sum() <= Epsilon)
             {
-                var singleSegment = ListPool<Vector2>.Rent();
-                
-                if(points.Count >= 2)
-                    foreach (var point in points)
+                if (points.Count >= 2)
+                {
+                    for(int i = 0; i < points.Count; i++)
                     {
-                        singleSegment.Add(point + halfPixelOffset);
+                        points[i] += halfPixelOffset;
                     }
-                
-                _dashSegments.Add(singleSegment);
-                return _dashSegments;
+                    allDashSegments.Add(points);
+                }
+                return allDashSegments;
             }
 
             var dashState = InitializeDashState(dashPattern, dashOffset);
-            var currentDashPoints = ListPool<Vector2>.Rent();
 
-            ProcessLineSegments(points, halfPixelOffset, dashPattern, dashState, currentDashPoints, _dashSegments);
+            if (_currentDashPointIdx >= _currentDashPoints.Count)
+            {
+                _currentDashPoints.Add(GetVector2PointList());
+            }
+            var currentDashPoints = _currentDashPoints[_currentDashPointIdx];
+            _currentDashPointIdx++;
+            currentDashPoints.Clear();
+
+            ProcessLineSegments(points, halfPixelOffset, dashPattern, dashState, currentDashPoints, allDashSegments);
 
             // Add final dash segment if we're in dash state
             if (dashState.IsInDash && currentDashPoints.Count >= 2)
             {
-                List<Vector2> newList = ListPool<Vector2>.Rent();
-                foreach (Vector2 segment in currentDashPoints)
+                var list = GetVector2PointList();
+                foreach (Vector2 vec in currentDashPoints)
                 {
-                    newList.Add(segment);
+                    list.Add(vec);
                 }
-                _dashSegments.Add(newList);
-                ListPool<Vector2>.Return(currentDashPoints);
+                allDashSegments.Add(list);
             }
 
-            _dashSegments.RemoveAll(ShouldRemoveDashSegment);
-            return _dashSegments;
+            // allDashSegments.RemoveAll(dash => dash.Count < 2);
+            return allDashSegments;
         }
 
-        private static bool ShouldRemoveDashSegment(List<Vector2> dashSegment)
-        {
-            return dashSegment.Count < 2;
-        }
-        
         private struct DashState
         {
             public int PatternIndex;
@@ -367,7 +327,7 @@ namespace Prowl.Quill
             return state;
         }
 
-        private static void ProcessLineSegments(List<Vector2> points, Vector2 halfPixelOffset, List<double> dashPattern, DashState dashState, List<Vector2> currentDashPoints, List<List<Vector2>> allDashSegments)
+        private static bool ProcessLineSegments(List<Vector2> points, Vector2 halfPixelOffset, List<double> dashPattern, DashState dashState, List<Vector2> currentDashPoints, List<List<Vector2>> allDashSegments)
         {
             for (int i = 0; i < points.Count - 1; i++)
             {
@@ -387,6 +347,8 @@ namespace Prowl.Quill
                 ProcessSingleSegment(p1, segmentDirection, segmentLength, halfPixelOffset, dashPattern,
                                    ref dashState, ref distanceTraversed, currentDashPoints, allDashSegments);
             }
+
+            return points.Count >= 2;
         }
 
         private static void ProcessSingleSegment(Vector2 segmentStart, Vector2 segmentDirection, double segmentLength, Vector2 halfPixelOffset, List<double> dashPattern, ref DashState dashState, ref double distanceTraversed, List<Vector2> currentDashPoints, List<List<Vector2>> allDashSegments)
@@ -466,12 +428,12 @@ namespace Prowl.Quill
                 // End of dash - save current segment
                 if (currentDashPoints.Count >= 2)
                 {
-                    List<Vector2> newList = ListPool<Vector2>.Rent();
-                    foreach (Vector2 segment in currentDashPoints)
+                    var list = GetVector2PointList();
+                    foreach (Vector2 vec in currentDashPoints)
                     {
-                        newList.Add(segment);
+                        list.Add(vec);
                     }
-                    allDashSegments.Add(newList);
+                    allDashSegments.Add(list);
                 }
                 currentDashPoints.Clear();
             }
@@ -832,6 +794,31 @@ namespace Prowl.Quill
             double dot = Dot(a, b);
             double cosAngle = dot / Math.Sqrt(magASq * magBSq);
             return Math.Acos(Math.Max(-1.0, Math.Min(1.0, cosAngle)));
+        }
+
+        private static int _currIdx = 0;
+        private static List<Vector2> GetVector2PointList()
+        {
+            List<Vector2> list;
+            if (_currIdx == 0)
+            {
+                list = new List<Vector2>();
+                _pointsListPool.Add(list);
+            }
+            else
+            {
+                list = _pointsListPool[_currIdx];
+                _currIdx--;
+            }
+            
+            return list;
+        }
+
+        private static void ReturnVector2PointList(List<Vector2> list)
+        {
+            if (_currIdx + 1 < _pointsListPool.Count) _currIdx++;
+            
+            list.Clear();
         }
     }
 }
