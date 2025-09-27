@@ -35,7 +35,7 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Reflection.Metadata.Ecma335;
+// using System.Reflection.Metadata.Ecma335;
 
 namespace Prowl.Quill.External
 {
@@ -59,7 +59,7 @@ namespace LibTessDotNet
             _leq = leq;
             _heap = new PriorityHeap<TValue>(initialSize, leq);
 
-            _keys = new TValue[initialSize];
+            _keys = ArrayPool<TValue>.Shared.Rent(initialSize);
 
             _size = 0;
             _max = initialSize;
