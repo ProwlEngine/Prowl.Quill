@@ -17,7 +17,7 @@ namespace Prowl.Quill
         [ThreadStatic]
         private static List<PolySegment> _polySegments;
         [ThreadStatic]
-        private static Stack<List<Vector2>> _pointsListPool = new Stack<List<Vector2>>();
+        private static List<List<Vector2>> _pointsListPool = new List<List<Vector2>>();
 
         private static List<Triangle> TriangleCache => _triangles ??= new List<Triangle>();
         private static List<PolySegment> PolySegmentCache => _polySegments ??= new List<PolySegment>();
@@ -796,20 +796,29 @@ namespace Prowl.Quill
             return Math.Acos(Math.Max(-1.0, Math.Min(1.0, cosAngle)));
         }
 
+        private static int _currIdx = 0;
         private static List<Vector2> GetVector2PointList()
         {
-            if (!_pointsListPool.TryPop(out List<Vector2> list))
+            List<Vector2> list;
+            if (_currIdx == 0)
             {
                 list = new List<Vector2>();
+                _pointsListPool.Add(list);
+            }
+            else
+            {
+                list = _pointsListPool[_currIdx];
+                _currIdx--;
             }
             
-            list.Clear();
             return list;
         }
 
         private static void ReturnVector2PointList(List<Vector2> list)
         {
-            _pointsListPool.Push(list);
+            if (_currIdx + 1 < _pointsListPool.Count) _currIdx++;
+            
+            list.Clear();
         }
     }
 }
