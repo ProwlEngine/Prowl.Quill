@@ -67,7 +67,10 @@ namespace Prowl.Quill
         /// </summary>
         public void DrawQuads(object texture, ReadOnlySpan<IFontRenderer.Vertex> vertices, ReadOnlySpan<int> indices)
         {
-            _canvas.SetTexture(texture);
+            _canvas.SetFontTexture(texture);
+
+            // UV offset of 2.0 signals text mode to shader (UV >= 2 means text)
+            var uvOffset = new Float2(2.0f, 2.0f);
 
             for (int i = 0; i < indices.Length; i += 3)
             {
@@ -76,10 +79,11 @@ namespace Prowl.Quill
                 var c = vertices[indices[i + 2]];
 
                 // Transform vertices through the current transform matrix
+                // Add 1.0 to UVs to signal text mode to shader
                 uint index = (uint)_canvas.Vertices.Count;
-                var vertA = new Vertex(_canvas.TransformPoint(new Float2(a.Position.X, a.Position.Y)), a.TextureCoordinate, ToColor(a.Color));
-                var vertB = new Vertex(_canvas.TransformPoint(new Float2(b.Position.X, b.Position.Y)), b.TextureCoordinate, ToColor(b.Color));
-                var vertC = new Vertex(_canvas.TransformPoint(new Float2(c.Position.X, c.Position.Y)), c.TextureCoordinate, ToColor(c.Color));
+                var vertA = new Vertex(_canvas.TransformPoint(new Float2(a.Position.X, a.Position.Y)), a.TextureCoordinate + uvOffset, ToColor(a.Color));
+                var vertB = new Vertex(_canvas.TransformPoint(new Float2(b.Position.X, b.Position.Y)), b.TextureCoordinate + uvOffset, ToColor(b.Color));
+                var vertC = new Vertex(_canvas.TransformPoint(new Float2(c.Position.X, c.Position.Y)), c.TextureCoordinate + uvOffset, ToColor(c.Color));
 
                 _canvas.AddVertex(vertA);
                 _canvas.AddVertex(vertC);
@@ -88,7 +92,12 @@ namespace Prowl.Quill
                 _canvas.AddTriangle(index, index + 1, index + 2);
             }
 
-            _canvas.SetTexture(null);
+            // Don't clear/revert texture - leave font atlas set so shapes can batch with it
+            // fonts use uv >= 2 and skips all typical rendering
+            // and shapes only use the texture if UseTexture is true, so no risk of shapes accidentally using the font atlas
+            // If the user sets a texture, then draws test, UseTexture is set back to false by SetFontTexture
+            // So their custom texture set is ignored forcing them to call it again after text
+            // to prevent accidental use of the font atlas
         }
 
         private static FontColor ToFSColor(Prowl.Vector.Color32 color)

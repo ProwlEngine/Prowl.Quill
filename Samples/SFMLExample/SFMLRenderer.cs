@@ -34,7 +34,7 @@ uniform vec4 brushParams;    // x,y = start point, z,w = end point (or center+ra
 uniform vec2 brushParams2;   // x = Box radius, y = Box Feather
 
 uniform mat4 brushTextureMat;     // Texture transform matrix (inverse)
-uniform int useWorldTextureCoords; // 0 = use vertex UVs, 1 = use world coords with transform
+uniform int brushHasTexture;
 
 varying vec2 v_position; // Add this
 
@@ -114,36 +114,40 @@ void main()
     // In SFML, gl_TexCoord[0].xy contains texture coordinates
     vec2 fragTexCoord = gl_TexCoord[0].xy;
     // We'll pass position in a custom vertex attribute
-    vec2 fragPos = v_position; // Use this instead of gl_TexCoord[0].zw
+    vec2 fragPos = v_position;
     // Color comes from vertex color
     vec4 fragColor = gl_Color;
 
+    float mask = scissorMask(fragPos);
+
+    // Text mode: UV >= 2.0 means text rendering - fast path
+    if (fragTexCoord.x >= 2) {
+        vec2 texCoord = fragTexCoord - vec2(2.0);
+        vec4 texColor = texture2D(texture0, texCoord);
+        gl_FragColor = fragColor * texColor * mask;
+        return;
+    }
+
+    // Shape mode: UV 0-1 for AA calculation
     vec2 pixelSize = fwidth(fragTexCoord);
     vec2 edgeDistance = min(fragTexCoord, 1.0 - fragTexCoord);
     float edgeAlpha = smoothstep(0.0, pixelSize.x, edgeDistance.x) * smoothstep(0.0, pixelSize.y, edgeDistance.y);
     edgeAlpha = clamp(edgeAlpha, 0.0, 1.0);
 
-    float mask = scissorMask(fragPos);
     vec4 color = fragColor;
 
-    // Apply brush if active
+    // Apply brush gradient if active
     if (brushType > 0) {
         float factor = calculateBrushFactor(fragPos);
         color = mix(brushColor1, brushColor2, factor);
     }
 
-    // Calculate texture coordinates based on mode
-    vec2 texCoord;
-    if (useWorldTextureCoords > 0) {
-        // Use world position transformed by texture matrix
-        texCoord = (brushTextureMat * vec4(fragPos, 0.0, 1.0)).xy;
-    } else {
-        // Use vertex UV coordinates (for text, legacy images)
-        texCoord = fragTexCoord;
+    if (brushHasTexture > 0)
+    {
+        vec2 texCoord = (brushTextureMat * vec4(fragPos, 0.0, 1.0)).xy;
+        vec4 textureColor = texture2D(texture0, texCoord);
+        color *= textureColor;
     }
-
-    vec4 textureColor = texture2D(texture0, texCoord);
-    color *= textureColor;
 
     color *= edgeAlpha * mask;
 
@@ -333,7 +337,7 @@ void main()
 
                         // Set texture transform parameters
                         _shader.SetUniform("brushTextureMat", ToMat4(drawCall.Brush.TextureMatrix));
-                        _shader.SetUniform("useWorldTextureCoords", drawCall.Brush.UseWorldTextureCoords ? 1 : 0);
+                        _shader.SetUniform("brushHasTexture", drawCall.Brush.UseTexture ? 1 : 0);
                     }
                     catch (Exception ex)
                     {

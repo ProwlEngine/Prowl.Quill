@@ -27,7 +27,7 @@ uniform vec4 brushParams;    // x,y = start point, z,w = end point (or center+ra
 uniform vec2 brushParams2;   // x = Box radius, y = Box Feather
 
 uniform mat4 brushTextureMat;     // Texture transform matrix (inverse)
-uniform int useWorldTextureCoords; // 0 = use vertex UVs, 1 = use world coords with transform
+uniform int brushHasTexture;
 
 float calculateBrushFactor() {
     // No brush
@@ -118,32 +118,36 @@ float scissorMask(vec2 p) {
 
 void main()
 {
+    float mask = scissorMask(fragPos);
+
+    // Text mode: UV >= 2.0 means text rendering - fast path
+    if (fragTexCoord.x >= 2) {
+        vec2 texCoord = fragTexCoord - vec2(2.0);
+        vec4 texColor = texture(texture0, texCoord);
+        finalColor = fragColor * texColor * mask;
+        return;
+    }
+
+    // Shape mode: UV 0-1 for AA calculation
     vec2 pixelSize = fwidth(fragTexCoord);
     vec2 edgeDistance = min(fragTexCoord, 1.0 - fragTexCoord);
     float edgeAlpha = smoothstep(0.0, pixelSize.x, edgeDistance.x) * smoothstep(0.0, pixelSize.y, edgeDistance.y);
     edgeAlpha = clamp(edgeAlpha, 0.0, 1.0);
 
-    float mask = scissorMask(fragPos);
     vec4 color = fragColor;
 
-    // Apply brush if active
+    // Apply brush gradient if active
     if (brushType > 0) {
         float factor = calculateBrushFactor();
         color = mix(brushColor1, brushColor2, factor);
     }
 
-    // Calculate texture coordinates based on mode
-    vec2 texCoord;
-    if (useWorldTextureCoords > 0) {
-        // Use world position transformed by texture matrix
-        texCoord = (brushTextureMat * vec4(fragPos, 0.0, 1.0)).xy;
-    } else {
-        // Use vertex UV coordinates (for text, legacy images)
-        texCoord = fragTexCoord;
+    if (brushHasTexture > 0) 
+    {
+        vec2 texCoord = (brushTextureMat * vec4(fragPos, 0.0, 1.0)).xy;
+        vec4 textureColor = texture(texture0, texCoord);
+        color *= textureColor;
     }
-
-    vec4 textureColor = texture(texture0, texCoord);
-    color *= textureColor;
 
     color *= edgeAlpha * mask;
 
@@ -181,7 +185,7 @@ void main()
         int _brushParamsLoc;
         int _brushParams2Loc;
         int _brushTextureMatLoc;
-        int _useWorldTextureCoordsLoc;
+        int _brushHasTexture;
 
         public RaylibCanvasRenderer()
         {
@@ -197,7 +201,7 @@ void main()
             _brushParamsLoc = GetShaderLocation(shader, "brushParams");
             _brushParams2Loc = GetShaderLocation(shader, "brushParams2");
             _brushTextureMatLoc = GetShaderLocation(shader, "brushTextureMat");
-            _useWorldTextureCoordsLoc = GetShaderLocation(shader, "useWorldTextureCoords");
+            _brushHasTexture = GetShaderLocation(shader, "brushHasTexture");
         }
 
         public object CreateTexture(uint width, uint height)
@@ -270,7 +274,7 @@ void main()
 
             // Set texture transform parameters
             SetShaderValueMatrix(shader, _brushTextureMatLoc, drawCall.Brush.TextureMatrix);
-            SetShaderValue(shader, _useWorldTextureCoordsLoc, drawCall.Brush.UseWorldTextureCoords ? 1 : 0, ShaderUniformDataType.Int);
+            SetShaderValue(shader, _brushHasTexture, drawCall.Brush.UseTexture ? 1 : 0, ShaderUniformDataType.Int);
         }
 
         public void RenderCalls(Canvas canvas, IReadOnlyList<Prowl.Quill.DrawCall> drawCalls)
@@ -282,6 +286,7 @@ void main()
 
             int index = 0;
 
+            Console.WriteLine($"Rendering {canvas.DrawCalls.Count} draw calls with {canvas.Indices.Count} indices and {canvas.Vertices.Count} vertices.");
             foreach (var drawCall in canvas.DrawCalls)
             {
 

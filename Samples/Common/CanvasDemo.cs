@@ -280,52 +280,52 @@ namespace Common
         {
             // Save the canvas state
             _canvas.SaveState();
-            _canvas.SetBrushTexture(_texture);
-            _canvas.SetBrushTextureTransform(Transform2D.CreateTranslation(0, 0) * Transform2D.CreateScale(128, 128));
+            _canvas.SetTexture(_texture);
+            _canvas.SetTextureTransform(Transform2D.CreateTranslation(0, 0) * Transform2D.CreateScale(128, 128));
 
             // Draw 2D grid for reference
             DrawGrid(16, 17, 50, Color32.FromArgb(40, 255, 255, 255));
-
+            
             // Draw coordinate system at center
             DrawCoordinateSystem(0, 0, 50);
-
+            
             // 1. Path Operations Demo
             DrawPathOperationsDemo(50, 50, 200, 150);
-
+            
             // 2. Transformations Demo
             DrawTransformationsDemo(300, 50, 200, 150);
             
             // 3. Shapes Demo
             DrawShapesDemo(550, 50, 200, 150);
-
+            
             // 4. Line Styles Demo
             DrawLineStylesDemo(50, 250, 200, 150);
-
+            
             // 5. 3D Demo
             Draw3DDemo(300, 250, 200, 150);
-
+            
             // 6. Join Styles Demo
             DrawJoinStylesDemo(550, 250, 200, 150);
-
+            
             // 7. Cap Styles Demo
             DrawCapStylesDemo(50, 450, 200, 150);
-
+            
             // 8. Scissor Demo
             DrawScissorDemo(300, 450, 200, 150);
-
+            
             // 9. Image Demo
             DrawImageDemo(550, 450, 200, 150);
-
+            
             // 10. Gradient Demo
             DrawGradientDemo(50, 650, 200, 150);
-
+            
             // 11. Concave Polygon Demo
             DrawConcaveDemo(300, 650, 200, 150);
 
             // 12. Text Demo
             DrawTextDemo(550, 650, 200, 150);
 
-            _canvas.ClearBrushTexture();
+            _canvas.ClearTexture();
             // Restore the canvas state
             _canvas.RestoreState();
         }
@@ -760,18 +760,18 @@ namespace Common
                 }
 
                 // 1. Basic textured rectangle
-                _canvas.SetBrushTexture(_texture);
-                _canvas.SetBrushTextureTransform(TextureTransformForRect(0, 0, 50, 50));
+                _canvas.SetTexture(_texture);
+                _canvas.SetTextureTransform(TextureTransformForRect(0, 0, 50, 50));
                 _canvas.RectFilled(0, 0, 50, 50, Color.White);
-                _canvas.ClearBrushTexture();
+                _canvas.ClearTexture();
 
                 // 2. Scaled textured rectangle
                 float scale = 0.7f + 0.3f * Maths.Sin(_time);
                 _canvas.SaveState();
                 _canvas.TransformBy(Transform2D.CreateTranslation(80, 0));
                 _canvas.TransformBy(Transform2D.CreateScale(scale, scale));
-                _canvas.SetBrushTexture(_texture);
-                _canvas.SetBrushTextureTransform(TextureTransformForRect(0, 0, 50, 50));
+                _canvas.SetTexture(_texture);
+                _canvas.SetTextureTransform(TextureTransformForRect(0, 0, 50, 50));
                 _canvas.RectFilled(0, 0, 50, 50, Color.White);
                 _canvas.RestoreState();
 
@@ -779,8 +779,8 @@ namespace Common
                 _canvas.SaveState();
                 _canvas.TransformBy(Transform2D.CreateTranslation(30, 60));
                 _canvas.TransformBy(Transform2D.CreateRotation(45));
-                _canvas.SetBrushTexture(_texture);
-                _canvas.SetBrushTextureTransform(TextureTransformForRect(-10, 0, 50, 50));
+                _canvas.SetTexture(_texture);
+                _canvas.SetTextureTransform(TextureTransformForRect(-10, 0, 50, 50));
                 _canvas.RectFilled(-10, 0, 50, 50, Color.White);
                 _canvas.RestoreState();
 
@@ -792,8 +792,8 @@ namespace Common
                 float r = 0.5f + 0.5f * Maths.Sin(_time);
                 float g = 0.5f + 0.5f * Maths.Sin(_time + Maths.PI * 2 / 3);
                 float b = 0.5f + 0.5f * Maths.Sin(_time + Maths.PI * 4 / 3);
-                _canvas.SetBrushTexture(_texture);
-                _canvas.SetBrushTextureTransform(TextureTransformForRect(0, 0, 60, 40));
+                _canvas.SetTexture(_texture);
+                _canvas.SetTextureTransform(TextureTransformForRect(0, 0, 60, 40));
                 _canvas.RectFilled(0, 0, 60, 40, Color32.FromArgb(200,
                     (int)(r * 255), (int)(g * 255), (int)(b * 255)));
 

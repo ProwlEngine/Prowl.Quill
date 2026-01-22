@@ -105,11 +105,7 @@ namespace Prowl.Quill
         public float CornerRadii;
         public float Feather;
         public object? Texture;
-        /// <summary>
-        /// When true, texture is sampled using world coordinates transformed by TextureTransform.
-        /// When false, texture is sampled using vertex UVs (for text rendering).
-        /// </summary>
-        public bool UseWorldTextureCoords;
+        public bool UseTexture;
 
         internal bool EqualsOther(in Brush other)
         {
@@ -123,7 +119,7 @@ namespace Prowl.Quill
                    Transform == other.Transform &&
                    Texture == other.Texture &&
                    TextureTransform == other.TextureTransform &&
-                   UseWorldTextureCoords == other.UseWorldTextureCoords;
+                   UseTexture == other.UseTexture;
         }
     }
 
@@ -172,7 +168,7 @@ namespace Prowl.Quill
             brush.Transform = Transform2D.Identity;
             brush.TextureTransform = Transform2D.Identity;
             brush.Texture = null;
-            brush.UseWorldTextureCoords = false;
+            brush.UseTexture = false;
             fillColor = Color32.FromArgb(255, 0, 0, 0); // Default fill color (black)
             fillMode = WindingMode.OddEven; // Default winding mode
         }
@@ -367,13 +363,13 @@ namespace Prowl.Quill
 
         /// <summary>
         /// Sets a texture on the current brush. The texture will be applied to all shapes drawn with this brush.
-        /// Use SetBrushTextureTransform to control how the texture maps to world coordinates.
+        /// Use SetTextureTransform to control how the texture maps to world coordinates.
         /// </summary>
         /// <param name="texture">The texture to apply, or null to clear the brush texture.</param>
-        public void SetBrushTexture(object? texture)
+        public void SetTexture(object? texture)
         {
             _state.brush.Texture = texture;
-            _state.brush.UseWorldTextureCoords = true;
+            _state.brush.UseTexture = true;
             // Default texture transform: 1 pixel = 1 texel, starting at origin
             if (texture != null && _state.brush.TextureTransform == Transform2D.Identity)
             {
@@ -387,7 +383,7 @@ namespace Prowl.Quill
         /// The transform is applied to world-space coordinates before sampling the texture.
         /// </summary>
         /// <param name="transform">The transformation to apply. Use scale to control texture size, rotation to rotate texture, translation to offset it.</param>
-        public void SetBrushTextureTransform(Transform2D transform)
+        public void SetTextureTransform(Transform2D transform)
         {
             _state.brush.TextureTransform = _state.transform * transform;
         }
@@ -395,21 +391,23 @@ namespace Prowl.Quill
         /// <summary>
         /// Clears the brush texture, reverting to solid color or gradient rendering.
         /// </summary>
-        public void ClearBrushTexture()
+        public void ClearTexture()
         {
-            _state.brush.Texture = null;
+            // We dont need to clear texture, HasCustomTexture = false means the shader wont use the texture
+            // and we may use it again in the future like with text rendering re-using fonts, can save on drawcalls
+            //_state.brush.Texture = null;
+            _state.brush.UseTexture = false;
             _state.brush.TextureTransform = Transform2D.Identity;
-            _state.brush.UseWorldTextureCoords = false;
         }
 
         /// <summary>
         /// Internal method for setting a texture that will be sampled using vertex UVs.
         /// Used by TextRenderer for font atlas textures.
         /// </summary>
-        internal void SetTexture(object? texture)
+        internal void SetFontTexture(object? texture)
         {
             _state.brush.Texture = texture;
-            _state.brush.UseWorldTextureCoords = false;
+            _state.brush.UseTexture = false;
         }
 
         public void SetLinearBrush(float x1, float y1, float x2, float y2, Color32 color1, Color32 color2)

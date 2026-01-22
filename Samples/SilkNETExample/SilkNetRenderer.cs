@@ -30,7 +30,7 @@ uniform vec4 brushParams;    // x,y = start point, z,w = end point (or center+ra
 uniform vec2 brushParams2;   // x = Box radius, y = Box Feather
 
 uniform mat4 brushTextureMat;     // Texture transform matrix (inverse)
-uniform int useWorldTextureCoords; // 0 = use vertex UVs, 1 = use world coords with transform
+uniform int brushHasTexture;
 
 float calculateBrushFactor() {
     // No brush
@@ -105,32 +105,36 @@ float scissorMask(vec2 p) {
 
 void main()
 {
+    float mask = scissorMask(fragPos);
+
+    // Text mode: UV >= 2.0 means text rendering - fast path
+    if (fragTexCoord.x >= 2) {
+        vec2 texCoord = fragTexCoord - vec2(2.0);
+        vec4 texColor = texture(texture0, texCoord);
+        finalColor = fragColor * texColor * mask;
+        return;
+    }
+
+    // Shape mode: UV 0-1 for AA calculation
     vec2 pixelSize = fwidth(fragTexCoord);
     vec2 edgeDistance = min(fragTexCoord, 1.0 - fragTexCoord);
     float edgeAlpha = smoothstep(0.0, pixelSize.x, edgeDistance.x) * smoothstep(0.0, pixelSize.y, edgeDistance.y);
     edgeAlpha = clamp(edgeAlpha, 0.0, 1.0);
 
-    float mask = scissorMask(fragPos);
     vec4 color = fragColor;
 
-    // Apply brush if active
+    // Apply brush gradient if active
     if (brushType > 0) {
         float factor = calculateBrushFactor();
         color = mix(brushColor1, brushColor2, factor);
     }
 
-    // Calculate texture coordinates based on mode
-    vec2 texCoord;
-    if (useWorldTextureCoords > 0) {
-        // Use world position transformed by texture matrix
-        texCoord = (brushTextureMat * vec4(fragPos, 0.0, 1.0)).xy;
-    } else {
-        // Use vertex UV coordinates (for text, legacy images)
-        texCoord = fragTexCoord;
+    if (brushHasTexture > 0)
+    {
+        vec2 texCoord = (brushTextureMat * vec4(fragPos, 0.0, 1.0)).xy;
+        vec4 textureColor = texture(texture0, texCoord);
+        color *= textureColor;
     }
-
-    vec4 textureColor = texture(texture0, texCoord);
-    color *= textureColor;
 
     color *= edgeAlpha * mask;
 
@@ -172,7 +176,7 @@ void main()
         private int _brushParamsLocation;
         private int _brushParams2Location;
         private int _brushTextureMatLocation;
-        private int _useWorldTextureCoordsLocation;
+        private int _brushHasTextureLocation;
 
         private Float4x4 _projection;
         private TextureSilk _defaultTexture;
@@ -243,7 +247,7 @@ void main()
             _brushParamsLocation = _gl.GetUniformLocation(_program, "brushParams");
             _brushParams2Location = _gl.GetUniformLocation(_program, "brushParams2");
             _brushTextureMatLocation = _gl.GetUniformLocation(_program, "brushTextureMat");
-            _useWorldTextureCoordsLocation = _gl.GetUniformLocation(_program, "useWorldTextureCoords");
+            _brushHasTextureLocation = _gl.GetUniformLocation(_program, "brushHasTexture");
         }
         
         private void CheckProgramLinking(uint program)
@@ -450,7 +454,7 @@ void main()
 
             // Set texture transform parameters
             SetMatrix4Uniform(_brushTextureMatLocation, brush.TextureMatrix);
-            _gl.Uniform1(_useWorldTextureCoordsLocation, brush.UseWorldTextureCoords ? 1 : 0);
+            _gl.Uniform1(_brushHasTextureLocation, brush.UseTexture ? 1 : 0);
         }
 
         public void Cleanup()
