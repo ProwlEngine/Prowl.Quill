@@ -2230,8 +2230,8 @@ namespace Prowl.Quill
         /// <param name="color">The color of the rounded rectangle.</param>
         /// <remarks>This is significantly faster than using the path API to draw a rounded rectangle.</remarks>
         public void RoundedRectFilled(float x, float y, float width, float height,
-                                     float tlRadii, float trRadii, float brRadii, float blRadii,
-                                     Color32 color)
+                             float tlRadii, float trRadii, float brRadii, float blRadii,
+                             Color32 color)
         {
             if (width <= 0 || height <= 0)
                 return;
@@ -2243,20 +2243,108 @@ namespace Prowl.Quill
             brRadii = Maths.Min(brRadii, maxRadius);
             blRadii = Maths.Min(blRadii, maxRadius);
 
-            // Adjust for proper AA
-            // Convert pixel adjustments to unit space since coordinates are in units
-            float unitPixelHalf = _pixelHalf / _scale;
-            float unitPixelWidth = _pixelWidth / _scale;
-            x -= unitPixelHalf;
-            y -= unitPixelHalf;
-            width += unitPixelWidth;
-            height += unitPixelWidth;
-
             // Calculate segment counts for each corner based on radius size
             int tlSegments = Maths.Max(1, (int)Maths.Ceiling(Maths.PI * tlRadii / 2 / _state.roundingMinDistance));
             int trSegments = Maths.Max(1, (int)Maths.Ceiling(Maths.PI * trRadii / 2 / _state.roundingMinDistance));
             int brSegments = Maths.Max(1, (int)Maths.Ceiling(Maths.PI * brRadii / 2 / _state.roundingMinDistance));
             int blSegments = Maths.Max(1, (int)Maths.Ceiling(Maths.PI * blRadii / 2 / _state.roundingMinDistance));
+
+            // Total point count — avoid heap List allocations
+            int N = (tlRadii > 0 ? tlSegments + 1 : 1)
+                  + (trRadii > 0 ? trSegments + 1 : 1)
+                  + (brRadii > 0 ? brSegments + 1 : 1)
+                  + (blRadii > 0 ? blSegments + 1 : 1);
+
+            // Use stackalloc to avoid GarbageCollection overhead of
+            // heap List allocations for points and normals
+            Span<Float2> points = stackalloc Float2[N];
+            Span<Float2> normals = stackalloc Float2[N];
+            int idx = 0;
+
+            // Top-left corner
+            if (tlRadii > 0)
+            {
+                Float2 tlCenter = new Float2(x + tlRadii, y + tlRadii);
+                for (int i = 0; i <= tlSegments; i++)
+                {
+                    float angle = Maths.PI + (Maths.PI / 2) * i / tlSegments;
+                    float nx = Maths.Cos(angle);
+                    float ny = Maths.Sin(angle);
+                    points[idx] = new Float2(tlCenter.X + tlRadii * nx, tlCenter.Y + tlRadii * ny);
+                    normals[idx] = new Float2(nx, ny);
+                    idx++;
+                }
+            }
+            else
+            {
+                points[idx] = new Float2(x, y);
+                normals[idx] = Float2.Normalize(new Float2(-1, -1));
+                idx++;
+            }
+
+            // Top-right corner
+            if (trRadii > 0)
+            {
+                Float2 trCenter = new Float2(x + width - trRadii, y + trRadii);
+                for (int i = 0; i <= trSegments; i++)
+                {
+                    float angle = Maths.PI * 3 / 2 + (Maths.PI / 2) * i / trSegments;
+                    float nx = Maths.Cos(angle);
+                    float ny = Maths.Sin(angle);
+                    points[idx] = new Float2(trCenter.X + trRadii * nx, trCenter.Y + trRadii * ny);
+                    normals[idx] = new Float2(nx, ny);
+                    idx++;
+                }
+            }
+            else
+            {
+                points[idx] = new Float2(x + width, y);
+                normals[idx] = Float2.Normalize(new Float2(1, -1));
+                idx++;
+            }
+
+            // Bottom-right corner
+            if (brRadii > 0)
+            {
+                Float2 brCenter = new Float2(x + width - brRadii, y + height - brRadii);
+                for (int i = 0; i <= brSegments; i++)
+                {
+                    float angle = 0 + (Maths.PI / 2) * i / brSegments;
+                    float nx = Maths.Cos(angle);
+                    float ny = Maths.Sin(angle);
+                    points[idx] = new Float2(brCenter.X + brRadii * nx, brCenter.Y + brRadii * ny);
+                    normals[idx] = new Float2(nx, ny);
+                    idx++;
+                }
+            }
+            else
+            {
+                points[idx] = new Float2(x + width, y + height);
+                normals[idx] = Float2.Normalize(new Float2(1, 1));
+                idx++;
+            }
+
+            // Bottom-left corner
+            if (blRadii > 0)
+            {
+                Float2 blCenter = new Float2(x + blRadii, y + height - blRadii);
+                for (int i = 0; i <= blSegments; i++)
+                {
+                    float angle = Maths.PI / 2 + (Maths.PI / 2) * i / blSegments;
+                    float nx = Maths.Cos(angle);
+                    float ny = Maths.Sin(angle);
+                    points[idx] = new Float2(blCenter.X + blRadii * nx, blCenter.Y + blRadii * ny);
+                    normals[idx] = new Float2(nx, ny);
+                    idx++;
+                }
+            }
+            else
+            {
+                points[idx] = new Float2(x, y + height);
+                normals[idx] = Float2.Normalize(new Float2(-1, 1));
+                idx++;
+            }
+
 
             // Store the starting index to reference _vertices
             uint startVertexIndex = (uint)_vertices.Count;
@@ -2267,96 +2355,62 @@ namespace Prowl.Quill
             // Add center vertex with UV at 0.5,0.5 (no AA)
             AddVertex(new Vertex(center, new Float2(0.5f, 0.5f), color));
 
-            List<Float2> points = new List<Float2>();
 
-            // Top-left corner
-            if (tlRadii > 0)
+            // Add inner + outer vertices in a single pass.
+            // Cache transformed positions to avoid redundant TransformPoint calls.
+            // Vertex layout: [center] [inner0..innerN-1] [outer0..outerN-1]
+            Span<Float2> transformedPoints = stackalloc Float2[N];
+
+            // Inner vertices first
+            for (int i = 0; i < N; i++)
             {
-                Float2 tlCenter = new Float2(x + tlRadii, y + tlRadii);
-                for (int i = 0; i <= tlSegments; i++)
-                {
-                    float angle = Maths.PI + (Maths.PI / 2) * i / tlSegments;
-                    float vx = tlCenter.X + tlRadii * Maths.Cos(angle);
-                    float vy = tlCenter.Y + tlRadii * Maths.Sin(angle);
-                    points.Add(new Float2(vx, vy));
-                }
-            }
-            else
-            {
-                points.Add(new Float2(x, y));
+                transformedPoints[i] = TransformPoint(points[i]);
+                // Inner vertex: at shape boundary, fully opaque
+                AddVertex(new Vertex(transformedPoints[i], new Float2(0.5f, 0.5f), color));
             }
 
-            // Top-right corner
-            if (trRadii > 0)
+            // Outer vertices next
+            for (int i = 0; i < N; i++)
             {
-                Float2 trCenter = new Float2(x + width - trRadii, y + trRadii);
-                for (int i = 0; i <= trSegments; i++)
-                {
-                    float angle = Maths.PI * 3 / 2 + (Maths.PI / 2) * i / trSegments;
-                    float vx = trCenter.X + trRadii * Maths.Cos(angle);
-                    float vy = trCenter.Y + trRadii * Maths.Sin(angle);
-                    points.Add(new Float2(vx, vy));
-                }
-            }
-            else
-            {
-                points.Add(new Float2(x + width, y));
+                // Transform normal to screen space (1 TransformPoint call, reuse cached position)
+                Float2 transformedNormalEnd = TransformPoint(points[i] + normals[i]);
+                Float2 screenNormal = Float2.Normalize(transformedNormalEnd - transformedPoints[i]);
+                // Outer vertex: pushed 1px outward, fully transparent
+                AddVertex(new Vertex(transformedPoints[i] + screenNormal, new Float2(0, 0), color));
             }
 
-            // Bottom-right corner
-            if (brRadii > 0)
+            //    Solid fill: fan from center to inner boundary vertices
+            //    All vertices have UV 0.5 so it's all solid color with no AA
+            for (int i = 0; i < N; i++)
             {
-                Float2 brCenter = new Float2(x + width - brRadii, y + height - brRadii);
-                for (int i = 0; i <= brSegments; i++)
-                {
-                    float angle = 0 + (Maths.PI / 2) * i / brSegments;
-                    float vx = brCenter.X + brRadii * Maths.Cos(angle);
-                    float vy = brCenter.Y + brRadii * Maths.Sin(angle);
-                    points.Add(new Float2(vx, vy));
-                }
-            }
-            else
-            {
-                points.Add(new Float2(x + width, y + height));
+                uint inner0 = (uint)(startVertexIndex + 1 + i);
+                uint inner1 = (uint)(startVertexIndex + 1 + ((i + 1) % N));
+
+                _indices.Add((uint)startVertexIndex); // Center
+                _indices.Add(inner1);
+                _indices.Add(inner0);
             }
 
-            // Bottom-left corner
-            if (blRadii > 0)
+            //    AA fringe: triangle strip between inner and outer rings
+            //    Inner has UV 0.5 (opaque), outer has UV 0.0 (transparent)
+            //    This creates a uniform fade
+            for (int i = 0; i < N; i++)
             {
-                Float2 blCenter = new Float2(x + blRadii, y + height - blRadii);
-                for (int i = 0; i <= blSegments; i++)
-                {
-                    float angle = Maths.PI / 2 + (Maths.PI / 2) * i / blSegments;
-                    float vx = blCenter.X + blRadii * Maths.Cos(angle);
-                    float vy = blCenter.Y + blRadii * Maths.Sin(angle);
-                    points.Add(new Float2(vx, vy));
-                }
-            }
-            else
-            {
-                points.Add(new Float2(x, y + height));
-            }
+                uint inner0 = (uint)(startVertexIndex + 1 + i);
+                uint inner1 = (uint)(startVertexIndex + 1 + ((i + 1) % N));
+                uint outer0 = (uint)(startVertexIndex + 1 + N + i);
+                uint outer1 = (uint)(startVertexIndex + 1 + N + ((i + 1) % N));
 
-            // Add all edge vertices
-            for (int i = 0; i < points.Count; i++)
-            {
-                Float2 transformedPoint = TransformPoint(points[i]);
-                AddVertex(new Vertex(transformedPoint, new Float2(0, 0), color));
+                _indices.Add(inner0);
+                _indices.Add(inner1);
+                _indices.Add(outer0);
+
+                _indices.Add(outer0);
+                _indices.Add(inner1);
+                _indices.Add(outer1);
             }
 
-            // Create triangles (fan from center to edges)
-            for (int i = 0; i < points.Count; i++)
-            {
-                uint current = (uint)(startVertexIndex + 1 + i);
-                uint next = (uint)(startVertexIndex + 1 + ((i + 1) % points.Count));
-
-                _indices.Add((uint)startVertexIndex);  // Center
-                _indices.Add(next);                    // Next edge vertex
-                _indices.Add(current);                 // Current edge vertex
-
-                //AddTriangleCount(1);
-            }
-            AddTriangleCount(points.Count);
+            AddTriangleCount(N + 2 * N); // N fan triangles + 2N strip triangles
         }
 
         /// <summary>
